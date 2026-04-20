@@ -28,15 +28,7 @@ import { useAllModulesProgress } from '../hooks/useModuleProgress';
 import { useReminders } from '../hooks/useReminders';
 import { useAuth } from '../contexts/useAuth';
 import { useMessaging } from '../hooks/useMessaging';
-import SleepLogModal from './SleepLogModal';
-
-interface SleepLogData {
-  date: string;
-  bedtime: string;
-  waketime: string;
-  quality: number;
-  notes?: string;
-}
+import SleepLogModal, { SleepLogData } from './SleepLogModal';
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
@@ -127,33 +119,29 @@ export default function PatientDashboard() {
 
   const sleepTrendSeries = useMemo(() => {
     return sleepTrendData.map((item) => {
-      const matchingLog = sleepLogs.find((log) => log.date.split('T')[0] === item.fullDate) as
-        | (typeof sleepLogs[number] & { timeAwakeDuringNight?: number })
-        | undefined;
-
       if (sleepTrendMetric === 'duration') {
         return {
           ...item,
-          value: item.hours || 0,
+          value: item.hasData ? item.hours : null,
         };
       }
 
       if (sleepTrendMetric === 'efficiency') {
         return {
           ...item,
-          value: item.quality || 0,
+          value: typeof item.sleepEfficiency === 'number' ? item.sleepEfficiency : null,
         };
       }
 
       return {
         ...item,
-        value: matchingLog?.timeAwakeDuringNight || 0,
+        value: typeof item.totalWakeMinutes === 'number' ? item.totalWakeMinutes : null,
       };
     });
-  }, [sleepTrendData, sleepTrendMetric, sleepLogs]);
+  }, [sleepTrendData, sleepTrendMetric]);
 
   const hasTrendDataForMetric = useMemo(() => {
-    return sleepTrendSeries.some((item) => (item.value ?? 0) > 0);
+    return sleepTrendSeries.some((item) => typeof item.value === 'number');
   }, [sleepTrendSeries]);
 
   const sampleTrendSeries = useMemo(() => {
@@ -185,7 +173,7 @@ export default function PatientDashboard() {
       return {
         domain: [0, 100] as [number, number],
         ticks: [0, 20, 40, 60, 80, 100],
-        label: 'Efficiency %',
+        label: '%',
         legend: 'Sleep Efficiency',
       };
     }
@@ -203,7 +191,7 @@ export default function PatientDashboard() {
       return {
         domain: [0, roundedMax] as [number, number],
         ticks,
-        label: 'Wake mins',
+        label: 'Minutes',
         legend: 'Wake Time',
       };
     }
@@ -366,7 +354,6 @@ export default function PatientDashboard() {
                     fontSize: '15px',
                     fontWeight: 400,
                     color: token.sidebarInactive,
-                    background: 'transparent',
                     borderLeft: '2px solid transparent',
                     borderRadius: '10px',
                     paddingTop: '10px',

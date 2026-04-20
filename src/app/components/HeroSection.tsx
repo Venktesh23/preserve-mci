@@ -4,7 +4,7 @@ export default function HeroSection() {
   const navigate = useNavigate();
 
   return (
-    <section className="w-full bg-[#F9F7FF] pt-24 pb-8 px-4">
+    <section className="w-full pt-24 pb-8 px-4" style={{ backgroundColor: '#F9FAFB' }}>
       <div className="max-w-5xl mx-auto flex flex-col items-center gap-8">
         {/* Heading */}
         <div className="text-center">
@@ -25,9 +25,8 @@ export default function HeroSection() {
         <div className="flex flex-col sm:flex-row items-center gap-4 mt-2">
           <button 
             onClick={() => navigate('/register')}
-            className="w-44 rounded-[10px] text-white text-[14px] font-semibold transition-opacity hover:opacity-90"
+            className="w-52 sm:w-72 h-14 sm:h-16 rounded-[12px] text-white text-[24px] font-semibold transition-opacity hover:opacity-90"
             style={{
-              padding: '10px 20px',
               background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
             }}
           >
@@ -35,8 +34,8 @@ export default function HeroSection() {
           </button>
           <button 
             onClick={() => navigate('/signin')}
-            className="w-44 rounded-[10px] border text-[#7200CA] text-[14px] font-medium hover:bg-[#F3E8FF] transition-colors"
-            style={{ padding: '9px 20px', borderColor: '#7200CA' }}
+            className="w-52 sm:w-72 h-14 sm:h-16 rounded-[12px] border text-[#7200CA] text-[24px] font-medium hover:bg-[#F3E8FF] transition-colors"
+            style={{ borderColor: '#7200CA' }}
           >
             Login
           </button>

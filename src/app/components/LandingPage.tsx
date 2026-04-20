@@ -110,7 +110,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="nondashboard-ds min-h-screen bg-gray-100">
+    <div className="min-h-screen" style={{ backgroundColor: '#F9FAFB' }}>
       {/* Hero Section - Using New Component */}
       <HeroSection />
 

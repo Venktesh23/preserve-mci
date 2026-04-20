@@ -1,10 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import {
-  ChevronLeft,
-  TrendingUp,
   Moon,
-  Calendar,
   Award,
   Target,
   BookOpen,
@@ -215,28 +212,26 @@ export default function MyProgress() {
 
   return (
     <PatientLayout>
-      <div className="space-y-8">
+      <div className="space-y-6 max-w-6xl">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/patient/dashboard')}
-              className="p-2 hover:bg-gray-100 rounded-xl"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </Button>
-            <div>
-              <h1 className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
-                My Progress
-              </h1>
-              <p className="text-lg text-gray-600">Track your journey to better sleep</p>
-            </div>
+          <div>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>
+              My Progress
+            </h1>
+            <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
+              Track your journey to better sleep
+            </p>
           </div>
 
-          <div className="flex items-center space-x-2 bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-3 rounded-xl">
-            <Trophy className="w-6 h-6" />
-            <span className="text-lg">
+          <div
+            className="flex items-center space-x-2 rounded-[10px] px-4 py-2 bg-white"
+            style={{ border: '0.5px solid #E9D5FF' }}
+          >
+            <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ backgroundColor: '#F3F4F6' }}>
+              <Trophy size={16} color="#6B7280" />
+            </div>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A2E' }}>
               {moduleProgressStats.averageProgress || 0}% Complete
             </span>
           </div>
@@ -249,28 +244,19 @@ export default function MyProgress() {
             return (
               <div
                 key={index}
-                className="bg-white rounded-2xl shadow-md border border-gray-100 p-6"
+                className="bg-white rounded-[12px] p-5"
+                style={{ border: '0.5px solid #E9D5FF' }}
               >
                 <div className="flex items-start justify-between mb-4">
-                  <div
-                    className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      stat.color === 'purple'
-                        ? 'bg-gradient-to-br from-purple-100 to-purple-200'
-                        : 'bg-gradient-to-br from-teal-100 to-teal-200'
-                    }`}
-                  >
-                    <Icon
-                      className={`w-6 h-6 ${
-                        stat.color === 'purple' ? 'text-purple-700' : 'text-teal-700'
-                      }`}
-                    />
+                  <div className="w-10 h-10 rounded-[8px] flex items-center justify-center bg-gray-100">
+                    <Icon className="w-5 h-5 text-gray-600" />
                   </div>
                 </div>
-                <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                <p className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>{stat.label}</p>
+                <p style={{ fontSize: '24px', fontWeight: 700, color: '#1A1A2E', marginBottom: '2px' }}>
                   {stat.value}
                 </p>
-                <p className="text-sm text-gray-500">{stat.subtext}</p>
+                <p style={{ fontSize: '13px', color: '#6B7280' }}>{stat.subtext}</p>
               </div>
             );
           })}
@@ -278,16 +264,16 @@ export default function MyProgress() {
 
         {/* Achievements */}
         {achievements.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+          <div className="bg-white rounded-[12px] p-5" style={{ border: '0.5px solid #E9D5FF' }}>
             <div className="flex items-center space-x-3 mb-6">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-100 to-amber-200 flex items-center justify-center">
-                <Trophy className="w-6 h-6 text-amber-700" />
+              <div className="w-10 h-10 rounded-[8px] bg-gray-100 flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-gray-600" />
               </div>
               <div>
-                <h2 className="text-2xl" style={{ color: '#1f1f3d' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
                   Achievements Unlocked
                 </h2>
-                <p className="text-base text-gray-600">
+                <p style={{ fontSize: '14px', color: '#6B7280' }}>
                   {achievements.length} milestone{achievements.length !== 1 ? 's' : ''} earned
                 </p>
               </div>
@@ -299,27 +285,18 @@ export default function MyProgress() {
                 return (
                   <div
                     key={achievement.id}
-                    className="p-5 rounded-xl bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200"
+                    className="p-4 rounded-[10px] bg-white"
+                    style={{ border: '0.5px solid #E9D5FF' }}
                   >
                     <div className="flex items-start space-x-4">
-                      <div
-                        className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                          achievement.color === 'purple'
-                            ? 'bg-purple-200 text-purple-700'
-                            : achievement.color === 'teal'
-                            ? 'bg-teal-200 text-teal-700'
-                            : achievement.color === 'orange'
-                            ? 'bg-orange-200 text-orange-700'
-                            : 'bg-amber-200 text-amber-700'
-                        }`}
-                      >
-                        <Icon className="w-6 h-6" />
+                      <div className="w-10 h-10 rounded-[8px] flex items-center justify-center flex-shrink-0 bg-gray-100 text-gray-600">
+                        <Icon className="w-5 h-5" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="text-lg mb-1" style={{ color: '#1f1f3d' }}>
+                        <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E', marginBottom: '4px' }}>
                           {achievement.name}
                         </h3>
-                        <p className="text-sm text-gray-700">{achievement.description}</p>
+                        <p style={{ fontSize: '14px', color: '#4B5563' }}>{achievement.description}</p>
                       </div>
                     </div>
                   </div>
@@ -330,23 +307,23 @@ export default function MyProgress() {
         )}
 
         {/* Sleep Trend Chart */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+        <div className="bg-white rounded-[12px] p-5" style={{ border: '0.5px solid #E9D5FF' }}>
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-2xl mb-1" style={{ color: '#1f1f3d' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
                 Sleep Trend
               </h2>
-              <p className="text-base text-gray-600">
+              <p style={{ fontSize: '14px', color: '#6B7280', marginTop: '4px' }}>
                 Your sleep hours over time
               </p>
             </div>
 
-            <div className="flex items-center space-x-2 bg-gray-100 rounded-xl p-1">
+            <div className="flex items-center space-x-2 bg-[#F9FAFB] rounded-[10px] p-1" style={{ border: '0.5px solid #E9D5FF' }}>
               <button
                 onClick={() => setTimeRange(7)}
-                className={`px-4 py-2 rounded-lg text-base transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
                   timeRange === 7
-                    ? 'bg-white text-purple-700 shadow-sm'
+                    ? 'bg-[#6D28D9] text-white'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -354,9 +331,9 @@ export default function MyProgress() {
               </button>
               <button
                 onClick={() => setTimeRange(14)}
-                className={`px-4 py-2 rounded-lg text-base transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
                   timeRange === 14
-                    ? 'bg-white text-purple-700 shadow-sm'
+                    ? 'bg-[#6D28D9] text-white'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -364,9 +341,9 @@ export default function MyProgress() {
               </button>
               <button
                 onClick={() => setTimeRange(30)}
-                className={`px-4 py-2 rounded-lg text-base transition-colors ${
+                className={`px-4 py-2 rounded-lg text-sm transition-colors ${
                   timeRange === 30
-                    ? 'bg-white text-purple-700 shadow-sm'
+                    ? 'bg-[#6D28D9] text-white'
                     : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
@@ -385,39 +362,39 @@ export default function MyProgress() {
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                   <XAxis
                     dataKey="date"
-                    stroke="#6b7280"
-                    style={{ fontSize: '14px' }}
-                    tick={{ fill: '#6b7280' }}
+                    stroke="#9CA3AF"
+                    style={{ fontSize: '12px' }}
+                    tick={{ fill: '#6B7280' }}
                     interval="preserveStartEnd"
                   />
                   <YAxis
-                    stroke="#6b7280"
-                    style={{ fontSize: '14px' }}
-                    tick={{ fill: '#6b7280' }}
+                    stroke="#9CA3AF"
+                    style={{ fontSize: '12px' }}
+                    tick={{ fill: '#6B7280' }}
                     domain={[0, 10]}
                     ticks={[0, 2, 4, 6, 8, 10]}
                     label={{
                       value: 'Hours',
                       angle: -90,
                       position: 'insideLeft',
-                      style: { fill: '#6b7280', fontSize: '14px' },
+                      style: { fill: '#6B7280', fontSize: '12px' },
                     }}
                   />
                   <Tooltip
                     contentStyle={{
                       backgroundColor: 'white',
-                      border: '1px solid #e5e7eb',
-                      borderRadius: '12px',
+                      border: '0.5px solid #E9D5FF',
+                      borderRadius: '10px',
                       padding: '12px',
                     }}
-                    labelStyle={{ color: '#1f1f3d', fontWeight: 500 }}
+                    labelStyle={{ color: '#1A1A2E', fontWeight: 600 }}
                   />
                   <Line
                     type="monotone"
                     dataKey="hours"
-                    stroke="#8b5cf6"
+                    stroke="#6D28D9"
                     strokeWidth={3}
-                    dot={{ fill: '#8b5cf6', r: 5 }}
+                    dot={{ fill: '#6D28D9', r: 5 }}
                     activeDot={{ r: 7 }}
                     name="Sleep Hours"
                     isAnimationActive={false}
@@ -427,18 +404,19 @@ export default function MyProgress() {
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="w-20 h-20 rounded-2xl bg-purple-50 flex items-center justify-center mb-4">
-                <Moon className="w-10 h-10 text-purple-400" />
+              <div className="w-16 h-16 rounded-[10px] bg-gray-100 flex items-center justify-center mb-4">
+                <Moon className="w-10 h-10 text-gray-500" />
               </div>
-              <h3 className="text-xl mb-2" style={{ color: '#1f1f3d' }}>
+              <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E', marginBottom: '6px' }}>
                 No Sleep Data Yet
               </h3>
-              <p className="text-base text-gray-600 mb-6">
+              <p style={{ fontSize: '14px', color: '#6B7280', marginBottom: '16px' }}>
                 Start logging your sleep to see trends
               </p>
               <Button
                 onClick={() => navigate('/patient/dashboard')}
-                className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white h-12 px-6 rounded-xl"
+                className="text-white h-12 px-6 rounded-[10px] hover:opacity-90"
+                style={{ background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)' }}
               >
                 Log Sleep Now
               </Button>
@@ -448,33 +426,34 @@ export default function MyProgress() {
 
         {/* Weekly Summary */}
         {weeklySummary.some((w) => w.logsCount > 0) && (
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h2 className="text-2xl mb-6" style={{ color: '#1f1f3d' }}>
+          <div className="bg-white rounded-[12px] p-5" style={{ border: '0.5px solid #E9D5FF' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E', marginBottom: '16px' }}>
               4-Week Summary
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {weeklySummary.map((week, index) => (
                 <div
                   key={index}
-                  className="p-5 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200"
+                  className="p-4 rounded-[10px] bg-white"
+                  style={{ border: '0.5px solid #E9D5FF' }}
                 >
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg" style={{ color: '#1f1f3d' }}>
+                    <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                       {week.label}
                     </h3>
-                    <span className="text-sm px-3 py-1 bg-white rounded-full text-gray-700 border border-gray-200">
+                    <span className="text-xs px-3 py-1 bg-[#F3E8FF] rounded-full text-[#5B21B6]">
                       {week.logsCount} logs
                     </span>
                   </div>
                   <div className="space-y-3">
                     <div>
-                      <p className="text-sm text-gray-600 mb-1">Avg Sleep</p>
-                      <p className="text-2xl" style={{ color: '#1f1f3d' }}>
+                      <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Avg Sleep</p>
+                      <p style={{ fontSize: '20px', fontWeight: 700, color: '#1A1A2E' }}>
                         {week.avgHours > 0 ? `${week.avgHours} hrs` : 'No data'}
                       </p>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-600 mb-1">Avg Quality</p>
+                      <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Avg Quality</p>
                       <div className="flex items-center space-x-1">
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
@@ -496,54 +475,59 @@ export default function MyProgress() {
         )}
 
         {/* Module Progress */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-          <h2 className="text-2xl mb-6" style={{ color: '#1f1f3d' }}>
+        <div className="bg-white rounded-[12px] p-5" style={{ border: '0.5px solid #E9D5FF' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E', marginBottom: '16px' }}>
             Module Progress
           </h2>
           <div className="space-y-6">
             <div>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-lg" style={{ color: '#1f1f3d' }}>
+                <span style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                   Overall Completion
                 </span>
-                <span className="text-2xl" style={{ color: '#1f1f3d' }}>
+                <span style={{ fontSize: '20px', fontWeight: 700, color: '#1A1A2E' }}>
                   {moduleProgressStats.averageProgress || 0}%
                 </span>
               </div>
-              <Progress value={moduleProgressStats.averageProgress || 0} className="h-4" />
+              <Progress value={moduleProgressStats.averageProgress || 0} className="h-3" />
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-5 rounded-xl bg-teal-50 border border-teal-200">
+              <div className="p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
                 <div className="flex items-center space-x-3 mb-2">
-                  <CheckCircle className="w-6 h-6 text-teal-700" />
-                  <h3 className="text-xl" style={{ color: '#1f1f3d' }}>
+                  <div className="w-8 h-8 rounded-[8px] bg-gray-100 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-gray-600" />
+                  </div>
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Completed
                   </h3>
                 </div>
-                <p className="text-3xl" style={{ color: '#1f1f3d' }}>
+                <p style={{ fontSize: '24px', fontWeight: 700, color: '#1A1A2E' }}>
                   {moduleProgressStats.completedCount || 0}
                 </p>
-                <p className="text-sm text-gray-600">modules finished</p>
+                <p style={{ fontSize: '13px', color: '#6B7280' }}>modules finished</p>
               </div>
 
-              <div className="p-5 rounded-xl bg-purple-50 border border-purple-200">
+              <div className="p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
                 <div className="flex items-center space-x-3 mb-2">
-                  <Target className="w-6 h-6 text-purple-700" />
-                  <h3 className="text-xl" style={{ color: '#1f1f3d' }}>
+                  <div className="w-8 h-8 rounded-[8px] bg-gray-100 flex items-center justify-center">
+                    <Target className="w-4 h-4 text-gray-600" />
+                  </div>
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Remaining
                   </h3>
                 </div>
-                <p className="text-3xl" style={{ color: '#1f1f3d' }}>
+                <p style={{ fontSize: '24px', fontWeight: 700, color: '#1A1A2E' }}>
                   {(moduleProgressStats.totalModules || 8) - (moduleProgressStats.completedCount || 0)}
                 </p>
-                <p className="text-sm text-gray-600">modules to go</p>
+                <p style={{ fontSize: '13px', color: '#6B7280' }}>modules to go</p>
               </div>
             </div>
 
             <Button
               onClick={() => navigate('/modules')}
-              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white h-12 rounded-xl"
+              className="w-full text-white h-12 rounded-[10px] hover:opacity-90"
+              style={{ background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)' }}
             >
               <BookOpen className="w-5 h-5 mr-2" />
               Continue Learning

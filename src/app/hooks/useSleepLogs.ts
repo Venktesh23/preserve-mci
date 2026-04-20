@@ -11,6 +11,17 @@ export interface SleepLogData {
   hoursSlept: number;
   sleepQuality: number;
   notes: string;
+  bedtime?: string;
+  waketime?: string;
+  timeOutOfBed?: string;
+  napMinutes?: number;
+  napTimeOfDay?: string;
+  timeToFallAsleep?: number;
+  nightAwakenings?: number;
+  timeAwakeDuringNight?: number;
+  totalSleepMinutes?: number | null;
+  sleepEfficiency?: number | null;
+  totalWakeMinutes?: number | null;
 }
 
 /**
@@ -192,9 +203,10 @@ export function useSleepLogs() {
           id: dateStr, // Unique identifier for React keys
           date: date.toLocaleDateString('en-US', { weekday: 'short' }),
           fullDate: dateStr,
-          hours: log ? log.hoursSlept : 0,
-          quality: log ? log.sleepQuality * 20 : 0, // Convert 1-5 to 0-100 scale
-          hasData: !!log,
+          hours: log && typeof log.totalSleepMinutes === 'number' ? Number((log.totalSleepMinutes / 60).toFixed(1)) : 0,
+          sleepEfficiency: log && typeof log.sleepEfficiency === 'number' ? log.sleepEfficiency : null,
+          totalWakeMinutes: log && typeof log.totalWakeMinutes === 'number' ? log.totalWakeMinutes : null,
+          hasData: !!log && typeof log.totalSleepMinutes === 'number',
         });
       }
 

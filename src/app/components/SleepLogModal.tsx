@@ -21,6 +21,19 @@ export interface SleepLogData {
   timeToFallAsleep?: number;
   nightAwakenings?: number;
   timeAwakeDuringNight?: number;
+  totalSleepMinutes?: number | null;
+  sleepEfficiency?: number | null;
+  totalWakeMinutes?: number | null;
+}
+
+function timeToMinutes(time?: string): number | null {
+  if (!time) return null;
+  const parts = time.split(':');
+  if (parts.length < 2) return null;
+  const hours = Number(parts[0]);
+  const minutes = Number(parts[1]);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+  return (hours * 60) + minutes;
 }
 
 function toHours(bed?: string, wake?: string): number {
@@ -59,9 +72,45 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
       return;
     }
 
+    const bedtimeMinutes = timeToMinutes(bedtime);
+    const wakeTimeMinutes = timeToMinutes(waketime);
+    const sleepOnsetLatency = timeToFallAsleep ? Number(timeToFallAsleep) : null;
+    const awakeDuringNight = timeAwakeDuringNight ? Number(timeAwakeDuringNight) : null;
+
+    let timeInBed: number | null = null;
+    if (bedtimeMinutes != null && wakeTimeMinutes != null) {
+      timeInBed = wakeTimeMinutes < bedtimeMinutes
+        ? (wakeTimeMinutes + 1440) - bedtimeMinutes
+        : wakeTimeMinutes - bedtimeMinutes;
+    }
+
+    let totalSleepMinutes: number | null = null;
+    if (
+      timeInBed != null &&
+      sleepOnsetLatency != null &&
+      awakeDuringNight != null
+    ) {
+      const computed = timeInBed - (sleepOnsetLatency + awakeDuringNight);
+      if (Number.isFinite(computed) && computed >= 0) {
+        totalSleepMinutes = computed;
+      }
+    }
+
+    let sleepEfficiency: number | null = null;
+    if (timeInBed != null && timeInBed > 0 && totalSleepMinutes != null) {
+      const efficiency = Math.round((totalSleepMinutes / timeInBed) * 100);
+      sleepEfficiency = Math.max(0, Math.min(100, efficiency));
+    }
+
+    const totalWakeMinutes = awakeDuringNight;
+
+    const computedHoursSlept = totalSleepMinutes != null
+      ? Math.round(((totalSleepMinutes / 60) * 10)) / 10
+      : hoursSlept;
+
     onSubmit({
       date: new Date().toISOString(),
-      hoursSlept,
+      hoursSlept: computedHoursSlept,
       sleepQuality,
       notes: '',
       bedtime: bedtime || undefined,
@@ -69,9 +118,12 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
       timeOutOfBed: timeOutOfBed || undefined,
       napMinutes: napMinutes ? Number(napMinutes) : undefined,
       napTimeOfDay,
-      timeToFallAsleep: timeToFallAsleep ? Number(timeToFallAsleep) : undefined,
+      timeToFallAsleep: sleepOnsetLatency ?? undefined,
       nightAwakenings: nightAwakenings ? Number(nightAwakenings) : undefined,
-      timeAwakeDuringNight: timeAwakeDuringNight ? Number(timeAwakeDuringNight) : undefined,
+      timeAwakeDuringNight: awakeDuringNight ?? undefined,
+      totalSleepMinutes,
+      sleepEfficiency,
+      totalWakeMinutes: totalWakeMinutes ?? undefined,
     });
 
     toast.success('Sleep logged successfully', {
@@ -109,7 +161,7 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>How many minutes did you nap yesterday?</label>
+            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>How many minutes total did you nap yesterday?</label>
             <input
               type="number"
               min={0}
@@ -121,7 +173,7 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
           </div>
 
           <div>
-            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>What time of day did you nap?</label>
+            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>What time of the day did you take your nap?</label>
             <div className="flex flex-wrap gap-2">
               {['Morning', 'Afternoon', 'Evening', 'Did not nap'].map((option) => {
                 const selected = napTimeOfDay === option;
@@ -150,18 +202,21 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
           </div>
 
           <div>
-            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>How long did it take you to fall asleep (minutes)?</label>
+            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>How long (in minutes) did it take you to fall asleep?</label>
             <input type="number" min={0} value={timeToFallAsleep} onChange={(e) => setTimeToFallAsleep(e.target.value)} className="w-full rounded-lg border border-[#E9D5FF] px-3 py-2 text-sm" />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>How many times did you wake up during the night?</label>
+            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>How many times did you wake up?</label>
             <input type="number" min={0} value={nightAwakenings} onChange={(e) => setNightAwakenings(e.target.value)} className="w-full rounded-lg border border-[#E9D5FF] px-3 py-2 text-sm" />
           </div>
 
           <div>
-            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>How many total minutes were you awake during the night?</label>
+            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>How many minutes in total did you spend awake?</label>
             <input type="number" min={0} value={timeAwakeDuringNight} onChange={(e) => setTimeAwakeDuringNight(e.target.value)} className="w-full rounded-lg border border-[#E9D5FF] px-3 py-2 text-sm" />
+            <p style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '6px' }}>
+              This is used to calculate your sleep trends
+            </p>
           </div>
 
           <div>
@@ -170,12 +225,13 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
           </div>
 
           <div>
-            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>What time did you get out of bed?</label>
+            <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>When did you actually get out of bed after waking up?</label>
             <input type="time" value={timeOutOfBed} onChange={(e) => setTimeOutOfBed(e.target.value)} className="w-full rounded-lg border border-[#E9D5FF] px-3 py-2 text-sm" />
           </div>
 
           <div>
             <label className="mb-2 block text-sm" style={{ color: '#1A1A2E' }}>Rate your sleep quality</label>
+            <p style={{ fontSize: '11px', color: '#9CA3AF', marginBottom: '8px' }}>1 = poor, 10 = great</p>
             <div className="grid grid-cols-10 gap-2">
               {Array.from({ length: 10 }, (_, i) => i + 1).map((rating) => {
                 const selected = sleepQuality === rating;
@@ -187,10 +243,7 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
                 } else if (selected && rating <= 6) {
                   selectedStyle = { backgroundColor: '#FEF9C3', color: '#854D0E' };
                 } else if (selected) {
-                  selectedStyle = {
-                    backgroundImage: homepageButtonGradient,
-                    color: '#FFFFFF',
-                  };
+                  selectedStyle = { backgroundColor: '#DCFCE7', color: '#166534' };
                 }
 
                 return (

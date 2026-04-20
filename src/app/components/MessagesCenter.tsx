@@ -171,24 +171,15 @@ export default function MessagesCenter({
       <Layout>
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                variant="ghost"
-                onClick={() => navigate(dashboardPath)}
-                className="p-2 hover:bg-gray-100 rounded-xl"
-              >
-                <ChevronLeft className="w-6 h-6" />
-              </Button>
-              <div>
-                <h1 className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
-                  {pageTitle || 'Notifications'}
-                </h1>
-                <p className="text-lg text-gray-600">
-                  {unreadCount > 0
-                    ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
-                    : 'All caught up!'}
-                </p>
-              </div>
+            <div>
+              <h1 className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
+                {pageTitle || 'Notifications'}
+              </h1>
+              <p className="text-lg text-gray-600">
+                {unreadCount > 0
+                  ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+                  : 'All caught up!'}
+              </p>
             </div>
 
             {unreadCount > 0 && (

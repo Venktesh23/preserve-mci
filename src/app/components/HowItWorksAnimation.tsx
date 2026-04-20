@@ -98,13 +98,13 @@ const HowItWorksAnimation = () => {
   }, []);
 
   return (
-    <section className="w-full bg-[#F9F7FF] pt-10 pb-24 px-4">
+    <section className="w-full pt-10 pb-24 px-4" style={{ backgroundColor: '#F9FAFB' }}>
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-[#1A1A2E] font-semibold text-[18px] leading-[1.3] tracking-tight">
+          <h2 className="text-[#1A1A2E] font-semibold text-[34px] sm:text-[40px] leading-[1.2] tracking-tight">
             How PRESERVE Works
           </h2>
-          <p className="text-[#4B5563] text-[14px] leading-[1.7] max-w-3xl mx-auto mt-6">
+          <p className="text-[#4B5563] text-[20px] sm:text-[22px] leading-[1.6] max-w-3xl mx-auto mt-6">
             A simple, guided journey to better cognitive health and well-being.
           </p>
         </div>

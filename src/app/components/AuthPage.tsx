@@ -104,16 +104,17 @@ export default function AuthPage() {
   };
 
   return (
-    <div className="nondashboard-ds min-h-screen bg-gray-100 flex items-center justify-center px-6 py-12 relative">
-      <button
-        type="button"
-        onClick={() => navigate('/')}
-        className="absolute top-6 left-6 flex items-center gap-2 text-[#4A5565] hover:text-[#101828] transition-colors"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        <span className="text-base">Back to Home</span>
-      </button>
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-gray-100 px-6 py-12">
+      <div className="w-full max-w-md mx-auto">
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="inline-flex items-center gap-2 rounded-lg px-2 py-1 mb-4 hover:bg-white transition-colors"
+          aria-label="Back to Home"
+        >
+          <ArrowLeft size={18} color="#7200CA" />
+          <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>Back to Home</span>
+        </button>
           {/* Logo and Header */}
           <div className="text-center mb-10">
             <h1 className="text-3xl font-bold tracking-tight text-[#101828] mb-3">

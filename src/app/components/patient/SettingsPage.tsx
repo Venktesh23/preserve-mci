@@ -67,8 +67,8 @@ export default function SettingsPage() {
         {/* Profile Information */}
         <div className="bg-white rounded-[12px] p-5" style={{ border: '0.5px solid #E9D5FF' }}>
           <div className="flex items-center space-x-2 mb-5">
-            <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center" style={{ backgroundColor: '#F3E8FF' }}>
-              <User size={18} strokeWidth={1.5} color="#7200CA" />
+            <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center" style={{ backgroundColor: '#F3F4F6' }}>
+              <User size={18} strokeWidth={1.5} color="#6B7280" />
             </div>
             <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
               Profile Information
@@ -114,8 +114,8 @@ export default function SettingsPage() {
         {/* Notification Preferences */}
         <div className="bg-white rounded-[12px] p-5" style={{ border: '0.5px solid #E9D5FF' }}>
           <div className="flex items-center space-x-2 mb-5">
-            <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center" style={{ backgroundColor: '#F3E8FF' }}>
-              <Bell size={18} strokeWidth={1.5} color="#7200CA" />
+            <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center" style={{ backgroundColor: '#F3F4F6' }}>
+              <Bell size={18} strokeWidth={1.5} color="#6B7280" />
             </div>
             <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
               Notification Preferences
@@ -127,7 +127,7 @@ export default function SettingsPage() {
             <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Moon size={18} strokeWidth={1.5} color="#7200CA" />
+                  <Moon size={18} strokeWidth={1.5} color="#6B7280" />
                   <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Daily Sleep Log Reminders
                   </h3>
@@ -137,7 +137,6 @@ export default function SettingsPage() {
                 </p>
                 {localPreferences.sleepLogReminders && (
                   <div className="flex items-center space-x-2">
-                    <Clock size={16} strokeWidth={1.5} color="#9CA3AF" />
                     <input
                       type="time"
                       value={localPreferences.sleepLogTime}
@@ -164,7 +163,7 @@ export default function SettingsPage() {
             <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Calendar size={18} strokeWidth={1.5} color="#7200CA" />
+                  <Calendar size={18} strokeWidth={1.5} color="#6B7280" />
                   <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Module Completion Reminders
                   </h3>
@@ -183,7 +182,7 @@ export default function SettingsPage() {
             <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <CheckCircle size={18} strokeWidth={1.5} color="#7200CA" />
+                  <CheckCircle size={18} strokeWidth={1.5} color="#6B7280" />
                   <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Streak Maintenance
                   </h3>
@@ -202,7 +201,7 @@ export default function SettingsPage() {
             <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Calendar size={18} strokeWidth={1.5} color="#7200CA" />
+                  <Calendar size={18} strokeWidth={1.5} color="#6B7280" />
                   <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Appointment Reminders
                   </h3>
@@ -221,7 +220,7 @@ export default function SettingsPage() {
             <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Mail size={18} strokeWidth={1.5} color="#7200CA" />
+                  <Mail size={18} strokeWidth={1.5} color="#6B7280" />
                   <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Daily Digest
                   </h3>
