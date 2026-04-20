@@ -117,17 +117,17 @@ function FeatureCard({
   descriptionClassName = '',
 }: FeatureCardProps) {
   return (
-    <div className="relative flex flex-col">
+    <div className="relative flex h-full flex-col">
       {/* Card */}
-      <div className={`relative rounded-3xl bg-white shadow-[0_10px_15px_-3px_rgba(0,0,0,0.10),0_4px_6px_-4px_rgba(0,0,0,0.10)] pt-28 pb-8 px-8 flex flex-col items-center text-center ${cardClassName}`}>
+      <div className={`relative h-full rounded-[12px] bg-white border-[0.5px] border-[#E9D5FF] pt-28 pb-8 px-8 flex flex-col items-center text-center ${cardClassName}`}>
         {/* Illustration centered on top edge: half outside, half inside */}
         <div className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2">
           {illustration}
         </div>
-        <h3 className={`text-[#101828] font-bold text-2xl lg:text-[30px] leading-tight tracking-wide mb-4 ${titleClassName}`}>
+        <h3 className={`text-[#1A1A2E] font-semibold text-[15px] leading-[1.3] mb-4 ${titleClassName}`}>
           {title}
         </h3>
-        <p className={`text-[#4A5565] text-base lg:text-lg leading-relaxed ${descriptionClassName}`}>
+        <p className={`text-[#4B5563] text-[14px] leading-[1.7] ${descriptionClassName}`}>
           {description}
         </p>
       </div>
@@ -146,7 +146,7 @@ export default function FeaturesSection() {
     {
       title: "Adaptive Strategies",
       description:
-        "Learn evidence-based strategies through interactive modules and guided practices to support independent living.",
+        "Learn evidence-based strategies to support independent living.",
       illustration: <StressIllustration />,
       cardClassName: "pb-8",
       descriptionClassName: "max-w-[30ch] mx-auto",
@@ -166,14 +166,14 @@ export default function FeaturesSection() {
   ];
 
   return (
-    <section className="w-full bg-gray-100 px-4 pt-10 pb-10">
+    <section className="w-full bg-[#F9F7FF] px-4 pt-10 pb-10">
       <div className="max-w-6xl mx-auto flex flex-col items-center gap-12">
         {/* Section header */}
         <div className="flex flex-col items-center gap-6 text-center max-w-3xl">
-          <h2 className="text-[#101828] font-bold text-3xl sm:text-4xl lg:text-[48px] leading-tight tracking-tight">
+          <h2 className="text-[#1A1A2E] font-semibold text-[18px] leading-[1.3] tracking-tight">
             Comprehensive Health Interventions
           </h2>
-          <p className="text-[#4A5565] text-lg sm:text-xl lg:text-2xl leading-relaxed">
+          <p className="text-[#4B5563] text-[14px] leading-[1.7]">
             Evidence-based lifestyle programs delivered through guided videos
             and interactive educational modules to support brain health and
             well-being.

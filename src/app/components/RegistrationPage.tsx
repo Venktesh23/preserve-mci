@@ -322,7 +322,7 @@ export default function RegistrationPage() {
   // Role Selection Step
   if (currentStep === 'role-selection') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6 py-12 relative">
+      <div className="nondashboard-ds min-h-screen bg-white flex items-center justify-center px-6 py-12 relative">
         <button
           type="button"
           onClick={() => navigate('/')}
@@ -392,7 +392,7 @@ export default function RegistrationPage() {
 
   // Registration Form Step
   return (
-    <div className="min-h-screen bg-white relative">
+    <div className="nondashboard-ds min-h-screen bg-white relative">
       <button
         type="button"
         onClick={() => navigate('/')}

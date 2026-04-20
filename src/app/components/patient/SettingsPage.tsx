@@ -53,52 +53,54 @@ export default function SettingsPage() {
 
   return (
     <PatientLayout>
-      <div className="space-y-8 max-w-4xl">
+      <div className="space-y-6 max-w-4xl" style={{ backgroundColor: '#F9FAFB' }}>
         {/* Header */}
         <div>
-          <h1 className="text-3xl mb-2" style={{ color: '#1f1f3d' }}>
+          <h1 className="mb-2" style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>
             Settings & Preferences
           </h1>
-          <p className="text-lg text-gray-600">
+          <p style={{ fontSize: '14px', color: '#6B7280', fontWeight: 400 }}>
             Customize your experience and notification preferences
           </p>
         </div>
 
         {/* Profile Information */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-          <div className="flex items-center space-x-2 mb-6">
-            <User className="w-6 h-6 text-purple-600" />
-            <h2 className="text-2xl" style={{ color: '#1f1f3d' }}>
+        <div className="bg-white rounded-[12px] p-5" style={{ border: '0.5px solid #E9D5FF' }}>
+          <div className="flex items-center space-x-2 mb-5">
+            <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center" style={{ backgroundColor: '#F3E8FF' }}>
+              <User size={18} strokeWidth={1.5} color="#7200CA" />
+            </div>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
               Profile Information
             </h2>
           </div>
 
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
-                <p className="text-sm text-gray-600 mb-1">Name</p>
-                <p className="text-lg" style={{ color: '#1f1f3d' }}>
+              <div className="p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Name</p>
+                <p style={{ fontSize: '14px', fontWeight: 500, color: '#1A1A2E' }}>
                   {user?.name || 'Not set'}
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
-                <p className="text-sm text-gray-600 mb-1">Email</p>
-                <p className="text-lg" style={{ color: '#1f1f3d' }}>
+              <div className="p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Email</p>
+                <p style={{ fontSize: '14px', fontWeight: 500, color: '#1A1A2E' }}>
                   {user?.email || 'Not set'}
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
-                <p className="text-sm text-gray-600 mb-1">Role</p>
-                <p className="text-lg capitalize" style={{ color: '#1f1f3d' }}>
+              <div className="p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Role</p>
+                <p className="capitalize" style={{ fontSize: '14px', fontWeight: 500, color: '#1A1A2E' }}>
                   {user?.role?.replace('_', ' ') || 'Patient'}
                 </p>
               </div>
 
-              <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
-                <p className="text-sm text-gray-600 mb-1">Member Since</p>
-                <p className="text-lg" style={{ color: '#1f1f3d' }}>
+              <div className="p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Member Since</p>
+                <p style={{ fontSize: '14px', fontWeight: 500, color: '#1A1A2E' }}>
                   {new Date().toLocaleDateString('en-US', {
                     month: 'long',
                     year: 'numeric',
@@ -110,35 +112,44 @@ export default function SettingsPage() {
         </div>
 
         {/* Notification Preferences */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-          <div className="flex items-center space-x-2 mb-6">
-            <Bell className="w-6 h-6 text-purple-600" />
-            <h2 className="text-2xl" style={{ color: '#1f1f3d' }}>
+        <div className="bg-white rounded-[12px] p-5" style={{ border: '0.5px solid #E9D5FF' }}>
+          <div className="flex items-center space-x-2 mb-5">
+            <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center" style={{ backgroundColor: '#F3E8FF' }}>
+              <Bell size={18} strokeWidth={1.5} color="#7200CA" />
+            </div>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
               Notification Preferences
             </h2>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             {/* Sleep Log Reminders */}
-            <div className="flex items-start justify-between p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
+            <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Moon className="w-5 h-5 text-purple-600" />
-                  <h3 className="text-lg" style={{ color: '#1f1f3d' }}>
+                  <Moon size={18} strokeWidth={1.5} color="#7200CA" />
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Daily Sleep Log Reminders
                   </h3>
                 </div>
-                <p className="text-sm text-gray-600 mb-3">
+                <p style={{ fontSize: '14px', color: '#4B5563', marginBottom: '12px' }}>
                   Get reminded to log your sleep each day
                 </p>
                 {localPreferences.sleepLogReminders && (
                   <div className="flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-gray-500" />
+                    <Clock size={16} strokeWidth={1.5} color="#9CA3AF" />
                     <input
                       type="time"
                       value={localPreferences.sleepLogTime}
                       onChange={(e) => handleTimeChange('sleepLogTime', e.target.value)}
-                      className="px-3 py-2 rounded-lg border border-gray-300 text-sm"
+                      className="rounded-lg text-sm"
+                      style={{
+                        background: '#FFFFFF',
+                        border: '0.5px solid #E9D5FF',
+                        color: '#1A1A2E',
+                        padding: '10px 14px',
+                        fontSize: '14px',
+                      }}
                     />
                   </div>
                 )}
@@ -150,15 +161,15 @@ export default function SettingsPage() {
             </div>
 
             {/* Module Reminders */}
-            <div className="flex items-start justify-between p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
+            <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Calendar className="w-5 h-5 text-purple-600" />
-                  <h3 className="text-lg" style={{ color: '#1f1f3d' }}>
+                  <Calendar size={18} strokeWidth={1.5} color="#7200CA" />
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Module Completion Reminders
                   </h3>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p style={{ fontSize: '14px', color: '#4B5563' }}>
                   Receive reminders about incomplete learning modules
                 </p>
               </div>
@@ -169,15 +180,15 @@ export default function SettingsPage() {
             </div>
 
             {/* Streak Reminders */}
-            <div className="flex items-start justify-between p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
+            <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <CheckCircle className="w-5 h-5 text-purple-600" />
-                  <h3 className="text-lg" style={{ color: '#1f1f3d' }}>
+                  <CheckCircle size={18} strokeWidth={1.5} color="#7200CA" />
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Streak Maintenance
                   </h3>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p style={{ fontSize: '14px', color: '#4B5563' }}>
                   Get notified when your logging streak is at risk
                 </p>
               </div>
@@ -188,15 +199,15 @@ export default function SettingsPage() {
             </div>
 
             {/* Appointment Reminders */}
-            <div className="flex items-start justify-between p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
+            <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Calendar className="w-5 h-5 text-purple-600" />
-                  <h3 className="text-lg" style={{ color: '#1f1f3d' }}>
+                  <Calendar size={18} strokeWidth={1.5} color="#7200CA" />
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Appointment Reminders
                   </h3>
                 </div>
-                <p className="text-sm text-gray-600">
+                <p style={{ fontSize: '14px', color: '#4B5563' }}>
                   Receive reminders about upcoming appointments
                 </p>
               </div>
@@ -207,25 +218,32 @@ export default function SettingsPage() {
             </div>
 
             {/* Daily Digest */}
-            <div className="flex items-start justify-between p-4 rounded-xl bg-gradient-to-br from-purple-50 to-teal-50 border border-purple-200">
+            <div className="flex items-start justify-between p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
               <div className="flex-1">
                 <div className="flex items-center space-x-2 mb-2">
-                  <Mail className="w-5 h-5 text-purple-600" />
-                  <h3 className="text-lg" style={{ color: '#1f1f3d' }}>
+                  <Mail size={18} strokeWidth={1.5} color="#7200CA" />
+                  <h3 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>
                     Daily Digest
                   </h3>
                 </div>
-                <p className="text-sm text-gray-600 mb-3">
+                <p style={{ fontSize: '14px', color: '#4B5563', marginBottom: '12px' }}>
                   Get a summary of your activity each day
                 </p>
                 {localPreferences.dailyDigest && (
                   <div className="flex items-center space-x-2">
-                    <Clock className="w-4 h-4 text-gray-500" />
+                    <Clock size={16} strokeWidth={1.5} color="#9CA3AF" />
                     <input
                       type="time"
                       value={localPreferences.digestTime}
                       onChange={(e) => handleTimeChange('digestTime', e.target.value)}
-                      className="px-3 py-2 rounded-lg border border-gray-300 text-sm"
+                      className="rounded-lg text-sm"
+                      style={{
+                        background: '#FFFFFF',
+                        border: '0.5px solid #E9D5FF',
+                        color: '#1A1A2E',
+                        padding: '10px 14px',
+                        fontSize: '14px',
+                      }}
                     />
                   </div>
                 )}
@@ -243,14 +261,21 @@ export default function SettingsPage() {
           <Button
             onClick={() => navigate('/patient/dashboard')}
             variant="outline"
-            className="h-12 px-6 rounded-xl border-2 border-gray-300 hover:bg-gray-50"
+            className="h-12 px-6 rounded-[10px] bg-white text-[#7200CA] hover:bg-[#F3E8FF]"
+            style={{ border: '1px solid #7200CA', fontSize: '14px', fontWeight: 500 }}
           >
             Cancel
           </Button>
 
           <Button
             onClick={handleSave}
-            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white h-12 px-6 rounded-xl"
+            className="text-white h-12 px-6 rounded-[10px] hover:opacity-90"
+            style={{
+              border: 'none',
+              fontSize: '14px',
+              fontWeight: 600,
+              background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
+            }}
           >
             {saved ? (
               <>

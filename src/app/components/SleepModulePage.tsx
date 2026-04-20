@@ -93,7 +93,7 @@ export default function SleepModulePage() {
   // If module not found, show error
   if (!moduleData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="nondashboard-ds min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-3xl mb-4" style={{ color: '#1f1f3d' }}>
             Module Not Found
@@ -112,7 +112,7 @@ export default function SleepModulePage() {
   const canComplete = moduleProgress.videoWatched && moduleProgress.exerciseCompleted;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="nondashboard-ds min-h-screen bg-gray-50">
       {/* Top Navigation Bar */}
       <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 lg:px-8">

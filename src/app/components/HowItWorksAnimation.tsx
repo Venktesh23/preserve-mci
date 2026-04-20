@@ -13,22 +13,22 @@ const HowItWorksAnimation = () => {
     {
       title: 'Create Your Account',
       description: 'Sign up as a patient, care partner, or clinician in just a few simple steps.',
-      icon: <UserCheck />,
+      icon: <UserCheck size={18} strokeWidth={1.5} />,
     },
     {
       title: 'Complete Weekly Modules',
       description: 'Engage with personalized intervention content tailored to your specific needs.',
-      icon: <BookOpen />,
+      icon: <BookOpen size={18} strokeWidth={1.5} />,
     },
     {
       title: 'Track Your Progress',
       description: 'Monitor activity patterns and cognitive wellness with clear, easy-to-read insights.',
-      icon: <TrendingUp />,
+      icon: <TrendingUp size={18} strokeWidth={1.5} />,
     },
     {
       title: 'Stay Connected',
       description: 'Maintain communication with your care team and loved ones throughout the program.',
-      icon: <Users />,
+      icon: <Users size={18} strokeWidth={1.5} />,
     },
   ];
 
@@ -98,13 +98,13 @@ const HowItWorksAnimation = () => {
   }, []);
 
   return (
-    <section className="w-full bg-gray-100 pt-10 pb-24 px-4">
+    <section className="w-full bg-[#F9F7FF] pt-10 pb-24 px-4">
       <div className="max-w-5xl mx-auto">
         <div className="text-center mb-12">
-          <h2 className="text-[#101828] font-bold text-3xl sm:text-4xl lg:text-[48px] leading-tight tracking-tight">
+          <h2 className="text-[#1A1A2E] font-semibold text-[18px] leading-[1.3] tracking-tight">
             How PRESERVE Works
           </h2>
-          <p className="text-[#4A5565] text-lg sm:text-xl lg:text-2xl leading-relaxed max-w-3xl mx-auto mt-6">
+          <p className="text-[#4B5563] text-[14px] leading-[1.7] max-w-3xl mx-auto mt-6">
             A simple, guided journey to better cognitive health and well-being.
           </p>
         </div>

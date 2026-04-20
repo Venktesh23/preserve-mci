@@ -167,7 +167,7 @@ export default function ForgotPasswordFlow() {
   // Step 1: Request Reset
   if (currentStep === 'request') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6 py-12">
+      <div className="nondashboard-ds min-h-screen bg-white flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           {/* Back Button */}
           <button
@@ -254,7 +254,7 @@ export default function ForgotPasswordFlow() {
   // Step 2: Verify Code
   if (currentStep === 'code-sent') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6 py-12">
+      <div className="nondashboard-ds min-h-screen bg-white flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           {/* Back Button */}
           <button
@@ -348,7 +348,7 @@ export default function ForgotPasswordFlow() {
   // Step 3: Reset Password
   if (currentStep === 'reset') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6 py-12">
+      <div className="nondashboard-ds min-h-screen bg-white flex items-center justify-center px-6 py-12">
         <div className="w-full max-w-md">
           {/* Logo and Header */}
           <div className="text-center mb-10">
@@ -505,7 +505,7 @@ export default function ForgotPasswordFlow() {
 
   // Step 4: Success
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center px-6 py-12">
+    <div className="nondashboard-ds min-h-screen bg-white flex items-center justify-center px-6 py-12">
       <div className="w-full max-w-md">
         {/* Success Icon and Header */}
         <div className="text-center mb-10">

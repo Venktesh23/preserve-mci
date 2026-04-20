@@ -1,23 +1,27 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router';
-import { 
-  Moon, 
-  BookOpen, 
-  MessageSquare, 
-  Home, 
-  BarChart3, 
-  TrendingUp, 
-  Bell, 
-  Menu, 
-  X, 
-  Settings, 
-  LogOut, 
-  CheckCircle, 
-  Clock, 
-  ChevronRight, 
-  Calendar 
-} from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  Moon,
+  Star,
+  Flame,
+  BookOpen,
+  MessageCircle,
+  CalendarCheck,
+  ClipboardList,
+  Clock,
+  LayoutDashboard,
+  NotebookPen,
+  BarChart2,
+  TrendingUp,
+  Settings,
+  LogOut,
+  ChevronRight,
+  Menu,
+  X,
+  BedDouble,
+  Sparkles,
+} from 'lucide-react';
 import { Button } from './ui/button';
 import { useSleepLogs } from '../hooks/useSleepLogs';
 import { useAllModulesProgress } from '../hooks/useModuleProgress';
@@ -39,7 +43,9 @@ export default function PatientDashboard() {
   const { user, signout } = useAuth();
   const { unreadCount } = useMessaging();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
   const [sleepLogModalOpen, setSleepLogModalOpen] = useState(false);
+  const [sleepTipsOpen, setSleepTipsOpen] = useState(false);
   const [sleepTrendMetric, setSleepTrendMetric] = useState<'duration' | 'efficiency' | 'wakeTime'>('duration');
   
   // Use localStorage-backed sleep logs
@@ -70,6 +76,7 @@ export default function PatientDashboard() {
 
   // User name from auth context
   const userName = user?.name || 'Patient';
+  const firstName = userName.trim().split(/\s+/)[0] || 'Patient';
 
   // Mock data
   const currentWeek = 3;
@@ -90,7 +97,7 @@ export default function PatientDashboard() {
     { 
       label: 'Avg Sleep', 
       value: sleepStats.averageHours > 0 ? `${sleepStats.averageHours} hrs` : 'No data', 
-      icon: Moon, 
+      icon: Moon,
       trend: sleepStats.averageHours >= 7 ? '+0.5' : 'Track more',
       subLabel: 'Prescribed Sleep',
       subValue: `${prescribedSleepHours} hrs`
@@ -98,13 +105,13 @@ export default function PatientDashboard() {
     { 
       label: 'Sleep Quality', 
       value: sleepStats.averageQuality > 0 ? `${Math.round(sleepStats.averageQuality * 20)}%` : 'No data', 
-      icon: TrendingUp, 
+      icon: Star,
       trend: sleepStats.totalLogs > 3 ? '+5%' : 'Keep logging' 
     },
     { 
       label: 'Current Streak', 
       value: `${sleepStats.currentStreak} day${sleepStats.currentStreak !== 1 ? 's' : ''}`, 
-      icon: CheckCircle, 
+      icon: Flame,
       trend: sleepStats.currentStreak > 0 ? 'Great!' : 'Start now' 
     },
   ];
@@ -118,10 +125,101 @@ export default function PatientDashboard() {
     }));
   }, [getChartData]);
 
+  const sleepTrendSeries = useMemo(() => {
+    return sleepTrendData.map((item) => {
+      const matchingLog = sleepLogs.find((log) => log.date.split('T')[0] === item.fullDate) as
+        | (typeof sleepLogs[number] & { timeAwakeDuringNight?: number })
+        | undefined;
+
+      if (sleepTrendMetric === 'duration') {
+        return {
+          ...item,
+          value: item.hours || 0,
+        };
+      }
+
+      if (sleepTrendMetric === 'efficiency') {
+        return {
+          ...item,
+          value: item.quality || 0,
+        };
+      }
+
+      return {
+        ...item,
+        value: matchingLog?.timeAwakeDuringNight || 0,
+      };
+    });
+  }, [sleepTrendData, sleepTrendMetric, sleepLogs]);
+
+  const hasTrendDataForMetric = useMemo(() => {
+    return sleepTrendSeries.some((item) => (item.value ?? 0) > 0);
+  }, [sleepTrendSeries]);
+
+  const sampleTrendSeries = useMemo(() => {
+    const sampleDuration = [6.6, 7.1, 6.9, 7.4, 7.2, 7.6, 7.3];
+    const sampleEfficiency = [74, 78, 81, 83, 85, 87, 84];
+    const sampleWakeTime = [52, 46, 42, 38, 34, 30, 33];
+
+    const sampleValues =
+      sleepTrendMetric === 'duration'
+        ? sampleDuration
+        : sleepTrendMetric === 'efficiency'
+          ? sampleEfficiency
+          : sampleWakeTime;
+
+    const fallbackDates = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const sourceDates = sleepTrendData.length > 0 ? sleepTrendData.map((item) => item.date) : fallbackDates;
+
+    return sourceDates.slice(0, 7).map((date, index) => ({
+      date,
+      value: sampleValues[index] ?? sampleValues[sampleValues.length - 1],
+    }));
+  }, [sleepTrendData, sleepTrendMetric]);
+
+  const displayedTrendSeries = hasTrendDataForMetric ? sleepTrendSeries : sampleTrendSeries;
+  const isSamplePreview = !hasTrendDataForMetric;
+
+  const chartConfig = useMemo(() => {
+    if (sleepTrendMetric === 'efficiency') {
+      return {
+        domain: [0, 100] as [number, number],
+        ticks: [0, 20, 40, 60, 80, 100],
+        label: 'Efficiency %',
+        legend: 'Sleep Efficiency',
+      };
+    }
+
+    if (sleepTrendMetric === 'wakeTime') {
+      const sourceValues = isSamplePreview ? sampleTrendSeries : sleepTrendSeries;
+      const maxWake = Math.max(30, ...sourceValues.map((item) => item.value || 0));
+      const roundedMax = Math.ceil(maxWake / 10) * 10;
+      const step = Math.max(10, Math.ceil(roundedMax / 5 / 10) * 10);
+      const ticks: number[] = [];
+      for (let value = 0; value <= roundedMax; value += step) {
+        ticks.push(value);
+      }
+
+      return {
+        domain: [0, roundedMax] as [number, number],
+        ticks,
+        label: 'Wake mins',
+        legend: 'Wake Time',
+      };
+    }
+
+    return {
+      domain: [0, 10] as [number, number],
+      ticks: [0, 2, 4, 6, 8, 10],
+      label: 'Hours',
+      legend: 'Sleep Hours',
+    };
+  }, [isSamplePreview, sampleTrendSeries, sleepTrendMetric, sleepTrendSeries]);
+
   const quickActions = [
     { label: 'Log Last Night\'s Sleep', icon: Moon, color: 'purple', action: 'log-sleep' },
-    { label: 'View Sleep Tips', icon: BookOpen, color: 'teal', action: 'sleep-tips' },
-    { label: 'Message Care Team', icon: MessageSquare, color: 'purple', action: 'messages' },
+    { label: 'View Sleep Tips', icon: BookOpen, color: 'purple', action: 'sleep-tips' },
+    { label: 'Message Care Team', icon: MessageCircle, color: 'purple', action: 'messages' },
   ];
 
   const handleQuickAction = (action: string) => {
@@ -130,7 +228,7 @@ export default function PatientDashboard() {
         setSleepLogModalOpen(true);
         break;
       case 'sleep-tips':
-        navigate('/patient/sleep-tips');
+        setSleepTipsOpen(true);
         break;
       case 'messages':
         navigate('/patient/messages');
@@ -145,13 +243,13 @@ export default function PatientDashboard() {
       type: 'appointment',
       title: 'Check-in Call with Dr. Chen',
       date: 'Tomorrow, 10:00 AM',
-      icon: Calendar,
+      icon: CalendarCheck,
     },
     {
       type: 'reminder',
       title: 'Complete Week 3 Module',
       date: 'Due in 2 days',
-      icon: Bell,
+      icon: ClipboardList,
     },
     {
       type: 'reminder',
@@ -162,12 +260,12 @@ export default function PatientDashboard() {
   ];
 
   const navigationItems = [
-    { label: 'Dashboard', icon: Home, active: true, path: '/patient/dashboard' },
+    { label: 'Dashboard', icon: LayoutDashboard, active: true, path: '/patient/dashboard' },
     { label: 'Sleep Modules', icon: BookOpen, active: false, path: '/modules' },
-    { label: 'Sleep Log', icon: Moon, active: false, path: '/patient/dashboard', action: 'log-sleep' },
-    { label: 'Sleep Analytics', icon: BarChart3, active: false, path: '/patient/sleep-analytics' },
+    { label: 'Sleep Log', icon: NotebookPen, active: false, path: '/patient/dashboard', action: 'log-sleep' },
+    { label: 'Sleep Analytics', icon: BarChart2, active: false, path: '/patient/sleep-analytics' },
     { label: 'My Progress', icon: TrendingUp, active: false, path: '/patient/progress' },
-    { label: 'Messages', icon: MessageSquare, active: false, path: '/patient/messages' },
+    { label: 'Notifications', icon: MessageCircle, active: false, path: '/patient/messages' },
   ];
 
   // Suppress recharts duplicate key warning (known library issue)
@@ -194,80 +292,68 @@ export default function PatientDashboard() {
     navigate('/');
   };
 
+  const showSidebarLabels = sidebarOpen || sidebarHovered;
+  const homepagePurple = '#6D28D9';
+  const homepageButtonGradient = 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)';
+  const homepageGradientClass = 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800';
+  const token = {
+    purple900: '#6D28D9',
+    purple800: '#6D28D9',
+    purple600: '#6D28D9',
+    purple400: '#6D28D9',
+    purple200: '#DAB6F2',
+    purple100: '#F3E9FB',
+    purple50: '#FBF5FF',
+    white: '#FFFFFF',
+    sidebarInactive: '#888780',
+    label: '#AFA9EC',
+    divider: '#F3F2FE',
+    textBlack: '#000000',
+  };
+
+  const cardStyle = {
+    backgroundColor: token.white,
+    border: `0.5px solid ${token.purple100}`,
+    borderRadius: '14px',
+    padding: '18px 20px',
+  } as const;
+  const contentScale = 1.08;
+
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation Bar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            {/* Logo and Title */}
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
-                aria-label="Toggle menu"
-              >
-                {sidebarOpen ? (
-                  <X className="w-6 h-6 text-gray-600" />
-                ) : (
-                  <Menu className="w-6 h-6 text-gray-600" />
-                )}
-              </button>
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-                  <Moon className="w-6 h-6 text-white" />
-                </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-xl" style={{ color: '#1f1f3d' }}>
-                    Sleep Intervention
-                  </h1>
-                  <p className="text-sm text-gray-500">Patient Portal</p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: '#F9FAFB' }}>
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed top-4 left-4 z-40 lg:hidden p-2.5 rounded-lg transition-all duration-200 hover:bg-[#F3E8FF] hover:shadow-sm active:scale-95"
+        style={{ backgroundColor: token.white, border: `0.5px solid ${token.purple100}`, color: token.purple600 }}
+        aria-label="Toggle menu"
+      >
+        {sidebarOpen ? (
+          <X size={18} strokeWidth={1.5} color="#6B7280" />
+        ) : (
+          <Menu size={18} strokeWidth={1.5} color="#6B7280" />
+        )}
+      </button>
 
-            {/* Right Side Actions */}
-            <div className="flex items-center space-x-4">
-              <button 
-                className="relative p-2 rounded-xl hover:bg-gray-100 transition-colors"
-                onClick={() => navigate('/patient/reminders')}
-              >
-                <Bell className="w-6 h-6 text-gray-600" />
-                {activeCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1.5 bg-teal-500 text-white text-xs rounded-full flex items-center justify-center">
-                    {activeCount}
-                  </span>
-                )}
-              </button>
-              <div className="hidden md:flex items-center space-x-3 pl-4 border-l border-gray-200">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
-                  <span className="text-white text-lg">M</span>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: '#1f1f3d' }}>
-                    {userName}
-                  </p>
-                  <p className="text-xs text-gray-500">Patient</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="flex">
+      <div className="flex min-h-screen">
         {/* Sidebar Navigation */}
         <aside
-          className={`fixed lg:sticky top-20 left-0 h-[calc(100vh-5rem)] bg-white border-r border-gray-200 transition-all duration-300 z-30 ${
-            sidebarOpen ? 'w-64' : 'w-0 lg:w-20'
-          } overflow-hidden`}
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
+          className={`group fixed top-0 left-0 h-screen flex flex-col transition-all duration-300 z-30 w-72 ${
+            sidebarHovered ? 'lg:w-72' : 'lg:w-24'
+          } ${
+            sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          }`}
+          style={{ backgroundColor: token.white, borderRight: `0.5px solid ${token.purple100}` }}
         >
-          <nav className="p-4 space-y-2">
+          <div className={`px-4 pb-2 ${showSidebarLabels ? 'block' : 'hidden'}`}></div>
+          <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
             {navigationItems.map((item) => {
               const Icon = item.icon;
               return (
                 <button
                   key={item.label}
+                  title={item.label}
                   onClick={() => {
                     if (item.action) {
                       handleQuickAction(item.action);
@@ -275,16 +361,24 @@ export default function PatientDashboard() {
                       navigate(item.path);
                     }
                   }}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
-                    item.active
-                      ? 'bg-purple-50 text-purple-700'
-                      : 'text-gray-600 hover:bg-gray-50'
-                  }`}
+                  className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'}`}
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 400,
+                    color: token.sidebarInactive,
+                    background: 'transparent',
+                    borderLeft: '2px solid transparent',
+                    borderRadius: '10px',
+                    paddingTop: '10px',
+                    paddingBottom: '10px',
+                    paddingLeft: showSidebarLabels ? '16px' : '8px',
+                    paddingRight: showSidebarLabels ? '16px' : '8px',
+                  }}
                 >
-                  <Icon className="w-6 h-6 flex-shrink-0" />
+                  <Icon size={18} strokeWidth={1.5} color="#6B7280" className="flex-shrink-0" />
                   <span
-                    className={`text-base whitespace-nowrap ${
-                      sidebarOpen ? 'opacity-100' : 'lg:opacity-0'
+                    className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                      showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
                     }`}
                   >
                     {item.label}
@@ -295,28 +389,47 @@ export default function PatientDashboard() {
           </nav>
 
           {/* Bottom Actions */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 space-y-2">
+          <div
+            className="mt-auto p-4 space-y-2 shrink-0"
+            style={{ borderTop: `0.5px solid ${token.purple100}` }}
+          >
+            <div className={`pb-1 ${showSidebarLabels ? 'block' : 'hidden'}`}>
+              <p
+                className="text-[10px]"
+                style={{ color: token.textBlack, letterSpacing: '0.07em', fontWeight: 500 }}
+              >
+                ACCOUNT
+              </p>
+            </div>
             <button 
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-all"
+              title="Settings"
+              className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${
+                showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'
+              }`}
+              style={{ fontSize: '15px', color: token.sidebarInactive, paddingTop: '10px', paddingBottom: '10px' }}
               onClick={() => navigate('/patient/settings')}
             >
-              <Settings className="w-6 h-6 flex-shrink-0" />
+              <Settings size={18} strokeWidth={1.5} color="#6B7280" className="flex-shrink-0" />
               <span
-                className={`text-base whitespace-nowrap ${
-                  sidebarOpen ? 'opacity-100' : 'lg:opacity-0'
+                className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                  showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
                 }`}
               >
                 Settings
               </span>
             </button>
             <button
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-all"
+              title="Sign Out"
+              className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${
+                showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'
+              }`}
+              style={{ fontSize: '15px', color: token.sidebarInactive, paddingTop: '10px', paddingBottom: '10px' }}
               onClick={handleSignOut}
             >
-              <LogOut className="w-6 h-6 flex-shrink-0" />
+              <LogOut size={18} strokeWidth={1.5} color="#6B7280" className="flex-shrink-0" />
               <span
-                className={`text-base whitespace-nowrap ${
-                  sidebarOpen ? 'opacity-100' : 'lg:opacity-0'
+                className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                  showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
                 }`}
               >
                 Sign Out
@@ -326,47 +439,96 @@ export default function PatientDashboard() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main
+          className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full"
+          style={{
+            zoom: contentScale,
+            marginLeft: 'auto',
+            marginRight: 'auto',
+            paddingBottom: '72px',
+          }}
+        >
           {/* Welcome Section */}
-          <div className="mb-8">
-            <h1 className="text-3xl mb-2" style={{ color: '#1f1f3d' }}>
-              Good Morning, {userName}!
-            </h1>
-            <p className="text-lg text-gray-600">
-              You're doing great! Let's continue your sleep wellness journey.
-            </p>
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h1 className="mb-2" style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>
+              Good Morning, {firstName}!
+              </h1>
+              <p style={{ fontSize: '14px', color: '#6B7280', fontWeight: 400 }}>
+                You&apos;re doing great. Let&apos;s continue your sleep wellness journey.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-flex items-center rounded-full"
+                style={{
+                  backgroundColor: token.purple100,
+                  border: `0.5px solid ${token.purple200}`,
+                  color: token.textBlack,
+                  fontSize: '13px',
+                  fontWeight: 500,
+                  padding: '6px 14px',
+                }}
+              >
+                Week {currentWeek} of {totalWeeks}
+              </span>
+              <button
+                onClick={() => setSleepLogModalOpen(true)}
+                className="transition-all duration-200 hover:brightness-95 hover:-translate-y-px active:translate-y-0"
+                style={{
+                  color: token.white,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: 500,
+                  padding: '9px 16px',
+                  border: 'none',
+                  backgroundImage: homepageButtonGradient,
+                }}
+              >
+                Log sleep
+              </button>
+            </div>
           </div>
 
           {/* Current Week's Module - Main Focus */}
-          <div className="mb-8">
-            <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-3xl shadow-xl p-8 text-white">
-              <div className="flex items-start justify-between mb-6">
+          <div className="mb-3">
+            <div style={{ ...cardStyle, border: `0.5px solid ${token.purple200}` }}>
+              <div className="flex items-start justify-between mb-3">
                 <div className="flex-1">
-                  <div className="inline-flex items-center space-x-2 bg-white/20 backdrop-blur-sm px-4 py-2 rounded-full mb-4">
-                    <BookOpen className="w-5 h-5" />
-                    <span className="text-sm">Week {currentWeek} of {totalWeeks}</span>
+                  <div className="flex items-center gap-3 mb-3">
+                    <div
+                      className="w-[44px] h-[44px] rounded-[12px] flex items-center justify-center"
+                      style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                    >
+                      <BookOpen size={18} strokeWidth={1.5} color="#6B7280" />
+                    </div>
+                    <div>
+                      <p style={{ fontSize: '10px', fontWeight: 600, color: '#9333EA', letterSpacing: '0.08em' }}>
+                        CURRENT MODULE
+                      </p>
+                      <h2 style={{ fontSize: '18px', fontWeight: 500, color: token.textBlack }}>{currentModule.title}</h2>
+                    </div>
                   </div>
-                  <h2 className="text-3xl mb-3">{currentModule.title}</h2>
-                  <p className="text-lg text-purple-100 mb-4">
+                  <p style={{ fontSize: '15px', color: token.textBlack }}>
                     {currentModule.description}
                   </p>
                 </div>
               </div>
 
               {/* Progress Bar */}
-              <div className="mb-6">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-purple-100">
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span style={{ fontSize: '13px', color: token.textBlack }}>
                     {currentModule.lessonsCompleted} of {currentModule.totalLessons} lessons
                     completed
                   </span>
-                  <span className="text-sm text-purple-100">
+                  <span style={{ fontSize: '13px', color: token.textBlack }}>
                     {moduleProgress}%
                   </span>
                 </div>
-                <div className="h-3 bg-white/20 rounded-full overflow-hidden">
+                <div className="h-2 rounded-[4px] overflow-hidden" style={{ backgroundColor: token.purple100 }}>
                   <div
-                    className="h-full bg-gradient-to-r from-teal-400 to-teal-500 rounded-full transition-all duration-500"
+                    className={`h-full rounded-[2px] transition-all duration-500 ${homepageGradientClass}`}
                     style={{ width: `${moduleProgress}%` }}
                   ></div>
                 </div>
@@ -374,50 +536,80 @@ export default function PatientDashboard() {
 
               {/* CTA and Time */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div className="flex items-center space-x-2 text-purple-100">
-                  <Clock className="w-5 h-5" />
-                  <span className="text-base">{currentModule.estimatedTime}</span>
+                <div className="flex items-center space-x-2" style={{ color: token.textBlack }}>
+                  <Clock size={15} strokeWidth={1.5} color="#6B7280" />
+                  <span style={{ fontSize: '13px' }}>{currentModule.estimatedTime}</span>
                 </div>
                 <Button
-                  className="bg-white text-purple-700 hover:bg-purple-50 h-14 px-8 rounded-xl text-lg shadow-lg"
+                  className="h-11 px-5 rounded-lg transition-all duration-200 ease-out hover:bg-[#F3E8FF] hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg active:translate-y-0 active:scale-100"
+                  style={{
+                    border: `1px solid ${homepagePurple}`,
+                    backgroundColor: token.white,
+                    color: homepagePurple,
+                    fontSize: '14px',
+                    fontWeight: 500,
+                  }}
                   onClick={() => navigate('/modules/1')}
                 >
                   Continue Module
-                  <ChevronRight className="w-5 h-5 ml-2" />
+                  <ChevronRight size={16} strokeWidth={1.5} color="#6B7280" className="ml-2" />
                 </Button>
               </div>
             </div>
           </div>
 
           {/* Quick Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
             {sleepStatsData.map((stat, index) => {
               const Icon = stat.icon;
+              const isEmpty = stat.value === 'No data';
               return (
-                <div
-                  key={index}
-                  className="bg-white rounded-2xl shadow-md border border-gray-100 p-6"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-100 to-teal-200 flex items-center justify-center">
-                      <Icon className="w-6 h-6 text-teal-700" />
+                <div key={index} style={cardStyle}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div
+                      className="w-9 h-9 rounded-[10px] flex items-center justify-center"
+                      style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}
+                    >
+                      <Icon size={18} strokeWidth={1.5} color="#6B7280" />
                     </div>
-                    <div className="flex items-center space-x-1 text-teal-600 text-sm bg-teal-50 px-3 py-1 rounded-full">
-                      <TrendingUp className="w-4 h-4" />
-                      <span>{stat.trend}</span>
+                    <div
+                      className="flex items-center space-x-1 px-2 py-1 rounded-full"
+                      style={{ fontSize: '11px', color: '#C4B5FD', backgroundColor: token.purple100, fontWeight: 400 }}
+                    >
+                      <button className="transition-colors duration-200 hover:text-[#6D28D9] hover:underline" style={{ fontSize: '11px', color: '#C4B5FD', fontWeight: 400 }}>
+                        {stat.trend}
+                      </button>
                     </div>
                   </div>
-                  <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-                  <p className="text-3xl" style={{ color: '#1f1f3d' }}>
-                    {stat.value}
-                  </p>
-                  {stat.subLabel && stat.subValue && (
-                    <div className="mt-2 flex items-center space-x-2 text-sm text-gray-500">
-                      <div className="flex items-center space-x-2">
-                        <div className="w-4 h-4 rounded-full bg-purple-600"></div>
-                        <span>{stat.subLabel}: {stat.subValue}</span>
+                  {index === 0 ? (
+                    <div className="mt-1 flex items-stretch justify-between">
+                      <div className="flex-1 text-center">
+                        <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Avg Sleep</p>
+                        <p style={{ fontSize: '22px', fontWeight: 600, color: '#1A1A2E' }}>
+                          {isEmpty ? '—' : stat.value}
+                        </p>
+                      </div>
+                      <div style={{ width: '0.5px', backgroundColor: '#E9D5FF' }}></div>
+                      <div className="flex-1 text-center">
+                        <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Prescribed</p>
+                        <p style={{ fontSize: '22px', fontWeight: 600, color: '#7200CA' }}>7.5 hrs</p>
                       </div>
                     </div>
+                  ) : (
+                    <>
+                      <p style={{ fontSize: '13px', color: token.textBlack, marginBottom: '6px' }}>{stat.label}</p>
+                      {isEmpty ? (
+                        <>
+                          <p style={{ fontSize: '15px', color: '#D8B4FE', fontWeight: 400 }}>No sleep data</p>
+                          <button className="mt-1 cursor-pointer transition-colors duration-200 hover:text-[#5B21B6] hover:underline" style={{ color: homepagePurple, fontSize: '12px' }}>
+                            Start logging →
+                          </button>
+                        </>
+                      ) : (
+                        <p style={{ fontSize: '26px', color: token.textBlack, fontWeight: 500 }}>{stat.value}</p>
+                      )}
+                      <p style={{ fontSize: '12px', color: token.textBlack, marginTop: '6px' }}>Updated from your recent logs</p>
+                    </>
                   )}
                 </div>
               );
@@ -425,170 +617,237 @@ export default function PatientDashboard() {
           </div>
 
           {/* Sleep Trend Chart */}
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6 mb-8">
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
+          <div style={{ ...cardStyle, marginBottom: '12px' }}>
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-3 gap-3">
               <div>
-                <h2 className="text-2xl mb-1" style={{ color: '#1f1f3d' }}>
+                <h2 style={{ fontSize: '18px', fontWeight: 500, color: token.textBlack, marginBottom: '4px' }}>
                   Sleep Trend
                 </h2>
-                <p className="text-base text-gray-600">Last 7 days</p>
+                <p style={{ fontSize: '13px', color: token.textBlack }}>Last 7 days</p>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 flex-wrap">
                 <button
                   onClick={() => setSleepTrendMetric('duration')}
-                  className={`px-4 py-2 rounded-xl text-sm transition-all ${
+                  className={`px-3 py-1 transition-all duration-200 hover:opacity-90 hover:-translate-y-px active:translate-y-0 ${
                     sleepTrendMetric === 'duration'
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? ''
+                      : ''
                   }`}
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    backgroundColor: sleepTrendMetric === 'duration' ? homepagePurple : '#FFFFFF',
+                    color: sleepTrendMetric === 'duration' ? '#FFFFFF' : '#6B7280',
+                    border: sleepTrendMetric === 'duration' ? 'none' : '0.5px solid #E9D5FF',
+                    borderRadius: '20px',
+                  }}
                 >
                   Total Sleep
                 </button>
                 <button
                   onClick={() => setSleepTrendMetric('efficiency')}
-                  className={`px-4 py-2 rounded-xl text-sm transition-all ${
+                  className={`px-3 py-1 transition-all duration-200 hover:opacity-90 hover:-translate-y-px active:translate-y-0 ${
                     sleepTrendMetric === 'efficiency'
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? ''
+                      : ''
                   }`}
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    backgroundColor: sleepTrendMetric === 'efficiency' ? homepagePurple : '#FFFFFF',
+                    color: sleepTrendMetric === 'efficiency' ? '#FFFFFF' : '#6B7280',
+                    border: sleepTrendMetric === 'efficiency' ? 'none' : '0.5px solid #E9D5FF',
+                    borderRadius: '20px',
+                  }}
                 >
                   Sleep Efficiency
                 </button>
                 <button
                   onClick={() => setSleepTrendMetric('wakeTime')}
-                  className={`px-4 py-2 rounded-xl text-sm transition-all ${
+                  className={`px-3 py-1 transition-all duration-200 hover:opacity-90 hover:-translate-y-px active:translate-y-0 ${
                     sleepTrendMetric === 'wakeTime'
-                      ? 'bg-purple-600 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? ''
+                      : ''
                   }`}
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    backgroundColor: sleepTrendMetric === 'wakeTime' ? homepagePurple : '#FFFFFF',
+                    color: sleepTrendMetric === 'wakeTime' ? '#FFFFFF' : '#6B7280',
+                    border: sleepTrendMetric === 'wakeTime' ? 'none' : '0.5px solid #E9D5FF',
+                    borderRadius: '20px',
+                  }}
                 >
                   Total Wake Time
                 </button>
               </div>
             </div>
 
-            {sleepTrendData.length > 0 ? (
+            {displayedTrendSeries.length > 0 ? (
               <>
-                <div className="w-full" style={{ height: '320px' }}>
+                <div className="w-full" style={{ height: '340px', maxHeight: '340px' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     <LineChart 
-                      data={sleepTrendData}
+                      data={displayedTrendSeries}
                       margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
                     >
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                      <CartesianGrid strokeDasharray="3 3" stroke="#F3E8FF" vertical={false} />
                       <XAxis
                         dataKey="date"
-                        stroke="#6b7280"
-                        style={{ fontSize: '14px' }}
-                        tick={{ fill: '#6b7280' }}
+                        stroke="#AFA9EC"
+                        style={{ fontSize: '12px' }}
+                        tick={{ fill: '#AFA9EC' }}
                         interval="preserveStartEnd"
                       />
                       <YAxis
-                        stroke="#6b7280"
+                        stroke="#AFA9EC"
                         style={{ fontSize: '14px' }}
-                        tick={{ fill: '#6b7280' }}
-                        domain={[0, 10]}
-                        ticks={[0, 2, 4, 6, 8, 10]}
+                        tick={{ fill: '#AFA9EC', fontSize: 14 }}
+                        width={56}
+                        interval={0}
+                        domain={chartConfig.domain}
+                        ticks={chartConfig.ticks}
                         label={{
-                          value: 'Hours',
+                          value: chartConfig.label,
                           angle: -90,
                           position: 'insideLeft',
-                          style: { fill: '#6b7280', fontSize: '14px' },
+                          style: { fill: '#AFA9EC', fontSize: '14px' },
                         }}
                       />
                       <Tooltip
                         contentStyle={{
-                          backgroundColor: 'white',
-                          border: '1px solid #e5e7eb',
+                          backgroundColor: token.white,
+                          border: `0.5px solid ${token.purple100}`,
                           borderRadius: '12px',
                           padding: '12px',
                         }}
-                        labelStyle={{ color: '#1f1f3d', fontWeight: 500 }}
+                        labelStyle={{ color: token.textBlack, fontWeight: 500 }}
                       />
                       <Line
                         type="monotone"
-                        dataKey="hours"
-                        stroke="#8b5cf6"
+                        dataKey="value"
+                        stroke="#6D28D9"
                         strokeWidth={3}
-                        dot={{ fill: '#8b5cf6', r: 5 }}
+                        dot={{ fill: '#6D28D9', r: 5 }}
                         activeDot={{ r: 7 }}
-                        name="Sleep Hours"
+                        name={chartConfig.legend}
                         isAnimationActive={false}
                       />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
 
-                <div className="mt-4 flex items-center justify-center space-x-2 text-sm text-gray-600">
+                <div className="mt-4 flex items-center justify-center space-x-2" style={{ fontSize: '12px', color: token.textBlack }}>
                   <div className="flex items-center space-x-2">
-                    <div className="w-4 h-4 rounded-full bg-purple-600"></div>
-                    <span>Sleep Hours</span>
+                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: token.purple600 }}></div>
+                    <span>{chartConfig.legend}</span>
                   </div>
                 </div>
+
+                {isSamplePreview && (
+                  <div className="mt-3 flex flex-col items-center gap-2 text-center">
+                    <span
+                      className="rounded-full"
+                      style={{
+                        backgroundColor: '#F3E8FF',
+                        color: '#6D28D9',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        padding: '4px 10px',
+                      }}
+                    >
+                      Sample Preview Data
+                    </span>
+                    <p style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                      This is a demo graph preview. Start logging sleep to see your real trends.
+                    </p>
+                    <button
+                      onClick={() => setSleepLogModalOpen(true)}
+                      className="rounded-lg px-5 py-2 text-white transition-all duration-200 ease-out hover:brightness-95 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg active:translate-y-0 active:scale-100"
+                      style={{
+                        fontSize: '13px',
+                        fontWeight: 500,
+                        backgroundImage: homepageButtonGradient,
+                      }}
+                    >
+                      Log last night&apos;s sleep
+                    </button>
+                  </div>
+                )}
               </>
             ) : (
-              <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="w-20 h-20 rounded-2xl bg-purple-50 flex items-center justify-center mb-4">
-                  <Moon className="w-10 h-10 text-purple-400" />
-                </div>
-                <h3 className="text-xl mb-2" style={{ color: '#1f1f3d' }}>
-                  No Sleep Data Yet
+              <div
+                className="flex flex-col items-center justify-center text-center"
+                style={{
+                  backgroundColor: '#F9F7FF',
+                  border: '0.5px solid #E9D5FF',
+                  borderRadius: '12px',
+                  padding: '40px 24px',
+                  minHeight: '160px',
+                }}
+              >
+                <Moon size={28} strokeWidth={1.5} color="#C4B5FD" />
+                <h3 style={{ fontSize: '15px', marginTop: '12px', color: '#1A1A2E', fontWeight: 600 }}>
+                  No sleep data yet
                 </h3>
-                <p className="text-base text-gray-600 mb-6 max-w-md">
-                  Start logging your sleep to see trends and insights appear here.
+                <p style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '6px' }}>
+                  Log your first night to see your sleep trends appear here
                 </p>
-                <Button
+                <button
                   onClick={() => setSleepLogModalOpen(true)}
-                  className="h-12 px-6 rounded-xl bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
+                  className="mt-4 rounded-lg px-5 py-2 text-white transition-all duration-200 ease-out hover:brightness-95 hover:-translate-y-1 hover:scale-[1.02] hover:shadow-lg active:translate-y-0 active:scale-100"
+                  style={{
+                    fontSize: '13px',
+                    fontWeight: 500,
+                    backgroundImage: homepageButtonGradient,
+                  }}
                 >
-                  Log Your First Night
-                </Button>
+                  Log last night&apos;s sleep
+                </button>
               </div>
             )}
           </div>
 
           {/* Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-3">
             {/* Quick Actions */}
-            <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="text-2xl mb-6" style={{ color: '#1f1f3d' }}>
+            <div style={cardStyle}>
+              <h2 style={{ fontSize: '16px', fontWeight: 500, color: token.textBlack, marginBottom: '12px' }}>
                 Quick Actions
               </h2>
-              <div className="space-y-3">
+              <div>
                 {quickActions.map((action, index) => {
                   const Icon = action.icon;
                   const handleClick = () => {
                     handleQuickAction(action.action);
                   };
+                  const isActiveAction = index === 0;
                   
                   return (
                     <button
                       key={index}
                       onClick={handleClick}
-                      className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
-                        action.color === 'purple'
-                          ? 'border-purple-200 bg-purple-50 hover:bg-purple-100 hover:border-purple-300'
-                          : 'border-teal-200 bg-teal-50 hover:bg-teal-100 hover:border-teal-300'
-                      }`}
+                      className="w-full flex items-center justify-between py-4 transition-all duration-200 hover:bg-[#FAF5FF] hover:-translate-y-px"
+                      style={{
+                        borderRadius: '10px',
+                        borderBottom: index !== quickActions.length - 1 ? `0.5px solid ${token.divider}` : 'none',
+                      }}
                     >
                       <div className="flex items-center space-x-4">
-                        <div
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                            action.color === 'purple'
-                              ? 'bg-gradient-to-br from-purple-500 to-purple-700'
-                              : 'bg-gradient-to-br from-teal-500 to-teal-700'
-                          }`}
-                        >
-                          <Icon className="w-6 h-6 text-white" />
+                        <div className="w-9 h-9 rounded-[10px] flex items-center justify-center" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
+                          <Icon size={18} strokeWidth={1.5} color="#6B7280" />
                         </div>
-                        <span
-                          className="text-base"
-                          style={{ color: '#1f1f3d' }}
-                        >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="w-1.5 h-1.5 rounded-full"
+                            style={{ backgroundColor: isActiveAction ? token.purple400 : token.purple200 }}
+                          />
+                          <span style={{ fontSize: '14px', color: '#1A1A2E', fontWeight: 400 }}>
                           {action.label}
-                        </span>
+                          </span>
+                        </div>
                       </div>
-                      <ChevronRight className="w-5 h-5 text-gray-400" />
+                      <ChevronRight size={16} strokeWidth={1.5} color="#C4B5FD" />
                     </button>
                   );
                 })}
@@ -596,38 +855,45 @@ export default function PatientDashboard() {
             </div>
 
             {/* Upcoming Reminders & Appointments */}
-            <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-              <h2 className="text-2xl mb-6" style={{ color: '#1f1f3d' }}>
+            <div style={cardStyle}>
+              <h2 style={{ fontSize: '16px', fontWeight: 500, color: token.textBlack, marginBottom: '12px' }}>
                 Upcoming
               </h2>
-              <div className="space-y-4">
+              <div>
                 {upcomingItems.map((item, index) => {
                   const Icon = item.icon;
+                  const isToday = item.date.toLowerCase().includes('today');
                   return (
                     <div
                       key={index}
-                      className="flex items-start space-x-4 p-4 rounded-xl bg-gray-50 border border-gray-200"
+                      className="flex items-start space-x-3 py-4"
+                      style={{
+                        borderBottom: index !== upcomingItems.length - 1 ? `0.5px solid ${token.divider}` : 'none',
+                      }}
                     >
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          item.type === 'appointment'
-                            ? 'bg-purple-100'
-                            : 'bg-teal-100'
-                        }`}
-                      >
-                        <Icon
-                          className={`w-5 h-5 ${
-                            item.type === 'appointment'
-                              ? 'text-purple-700'
-                              : 'text-teal-700'
-                          }`}
-                        />
+                      <div className="w-[34px] h-[34px] rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#F3F4F6', color: '#6B7280' }}>
+                        <Icon size={18} strokeWidth={1.5} color="#6B7280" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-base mb-1" style={{ color: '#1f1f3d' }}>
+                        <p style={{ fontSize: '14px', color: '#1A1A2E', marginBottom: '5px', fontWeight: 500 }}>
                           {item.title}
                         </p>
-                        <p className="text-sm text-gray-600">{item.date}</p>
+                        <div className="flex items-center gap-2">
+                          <p style={{ fontSize: '12px', color: '#9CA3AF' }}>{item.date}</p>
+                          <span
+                            className="rounded-full"
+                            style={{
+                              fontSize: '11px',
+                              fontWeight: 500,
+                              borderRadius: '20px',
+                              padding: '3px 10px',
+                              backgroundColor: isToday ? '#EDE9FE' : '#F3E8FF',
+                              color: isToday ? '#4C1D95' : '#6B21A8',
+                            }}
+                          >
+                            {isToday ? 'Today' : 'Due soon'}
+                          </span>
+                        </div>
                       </div>
                     </div>
                   );
@@ -641,7 +907,8 @@ export default function PatientDashboard() {
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          className="fixed inset-0 z-20 lg:hidden"
+          style={{ backgroundColor: 'rgba(38, 33, 92, 0.35)' }}
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -652,6 +919,71 @@ export default function PatientDashboard() {
         onClose={() => setSleepLogModalOpen(false)}
         onSubmit={handleSleepLogSubmit}
       />
+
+      {/* Sleep Tips Modal */}
+      {sleepTipsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSleepTipsOpen(false)}></div>
+          <div className="relative w-full max-w-[480px] rounded-2xl bg-white p-7">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 style={{ fontSize: '18px', fontWeight: 700, color: '#1A1A2E' }}>Sleep Tips</h3>
+              <button
+                onClick={() => setSleepTipsOpen(false)}
+                className="rounded-md p-1 transition-all duration-200 hover:bg-[#F3E8FF] hover:scale-105 active:scale-100"
+              >
+                <X size={18} strokeWidth={1.5} color="#1A1A2E" />
+              </button>
+            </div>
+
+            <details open className="mb-4">
+              <summary
+                className="flex cursor-pointer items-center gap-2"
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#1A1A2E',
+                  padding: '12px 0',
+                  borderBottom: '0.5px solid #F3E8FF',
+                }}
+              >
+                <BedDouble size={16} strokeWidth={1.5} color="#6B7280" />
+                Stimulus Control
+              </summary>
+              <ul className="mt-3 list-disc pl-6" style={{ color: '#4B5563', fontSize: '13px', lineHeight: 1.7 }}>
+                <li>Don&apos;t use your bed for anything other than sleep and sex</li>
+                <li>If you can&apos;t fall asleep within 15–20 min, leave the bed and do something relaxing in another room. Return only when sleepy</li>
+                <li>If you wake up and can&apos;t fall back asleep within 20 minutes, follow the rule above</li>
+                <li>Avoid napping during the day</li>
+                <li>Maintain a regular bedtime and wake time every day</li>
+              </ul>
+            </details>
+
+            <details open>
+              <summary
+                className="flex cursor-pointer items-center gap-2"
+                style={{
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  color: '#1A1A2E',
+                  padding: '12px 0',
+                  borderBottom: '0.5px solid #F3E8FF',
+                }}
+              >
+                <Sparkles size={16} strokeWidth={1.5} color="#6B7280" />
+                Sleep Hygiene
+              </summary>
+              <ul className="mt-3 list-disc pl-6" style={{ color: '#4B5563', fontSize: '13px', lineHeight: 1.7 }}>
+                <li>Avoid caffeine after noon</li>
+                <li>Avoid exercise within 2 hours of bedtime</li>
+                <li>Avoid nicotine within 2 hours of bedtime</li>
+                <li>Avoid alcohol within 2 hours of bedtime</li>
+                <li>Avoid heavy meals within 2 hours of bedtime</li>
+                <li>Avoid screen time within 1 hour of bedtime</li>
+              </ul>
+            </details>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

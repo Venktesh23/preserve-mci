@@ -25,9 +25,16 @@ import { formatDistanceToNow } from 'date-fns';
 interface MessagesCenterProps {
   dashboardPath: string;
   layoutComponent: React.ComponentType<{ children: React.ReactNode }>;
+  viewMode?: 'messages' | 'notifications';
+  pageTitle?: string;
 }
 
-export default function MessagesCenter({ dashboardPath, layoutComponent: Layout }: MessagesCenterProps) {
+export default function MessagesCenter({
+  dashboardPath,
+  layoutComponent: Layout,
+  viewMode = 'messages',
+  pageTitle,
+}: MessagesCenterProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const {
@@ -61,6 +68,26 @@ export default function MessagesCenter({ dashboardPath, layoutComponent: Layout 
       conv.messages.some(msg => msg.content.toLowerCase().includes(query))
     );
   }, [conversations, searchQuery]);
+
+  const notificationItems = useMemo(() => {
+    return filteredConversations
+      .map((conv) => {
+        const latestMessage = conv.messages[conv.messages.length - 1];
+        if (!latestMessage) return null;
+
+        return {
+          partnerId: conv.partnerId,
+          partnerName: conv.partnerName,
+          partnerRole: conv.partnerRole,
+          unreadCount: conv.unreadCount,
+          content: latestMessage.content,
+          timestamp: latestMessage.timestamp,
+          senderName: latestMessage.senderName,
+        };
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  }, [filteredConversations]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -130,7 +157,107 @@ export default function MessagesCenter({ dashboardPath, layoutComponent: Layout 
         <div className="flex items-center justify-center h-96">
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin mx-auto text-purple-600 mb-4" />
-            <p className="text-lg text-gray-600">Loading messages...</p>
+            <p className="text-lg text-gray-600">
+              {viewMode === 'notifications' ? 'Loading notifications...' : 'Loading messages...'}
+            </p>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
+
+  if (viewMode === 'notifications') {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                onClick={() => navigate(dashboardPath)}
+                className="p-2 hover:bg-gray-100 rounded-xl"
+              >
+                <ChevronLeft className="w-6 h-6" />
+              </Button>
+              <div>
+                <h1 className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
+                  {pageTitle || 'Notifications'}
+                </h1>
+                <p className="text-lg text-gray-600">
+                  {unreadCount > 0
+                    ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+                    : 'All caught up!'}
+                </p>
+              </div>
+            </div>
+
+            {unreadCount > 0 && (
+              <div className="flex items-center space-x-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-xl">
+                <Mail className="w-5 h-5" />
+                <span className="text-base font-medium">{unreadCount} New</span>
+              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 flex flex-col min-h-[420px]">
+            <div className="p-4 border-b border-gray-100">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <Input
+                  type="text"
+                  placeholder="Search notifications..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 h-12 rounded-xl border-gray-200"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-2">
+              {notificationItems.length > 0 ? (
+                <div className="space-y-2">
+                  {notificationItems.map((item) => (
+                    <button
+                      key={item.partnerId}
+                      onClick={() => {
+                        if (item.unreadCount > 0) {
+                          markAllAsRead(item.partnerId);
+                        }
+                      }}
+                      className="w-full text-left p-4 rounded-xl border border-gray-100 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div>
+                          <p className="font-semibold text-gray-900">{item.partnerName}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${getRoleBadgeColor(item.partnerRole)}`}>
+                            {getRoleLabel(item.partnerRole)}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {item.unreadCount > 0 && (
+                            <span className="bg-purple-600 text-white text-xs font-bold rounded-full min-w-[22px] h-6 px-2 flex items-center justify-center">
+                              {item.unreadCount}
+                            </span>
+                          )}
+                          <span className="text-xs text-gray-400">
+                            {formatDistanceToNow(new Date(item.timestamp), { addSuffix: true })}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-700 line-clamp-2">{item.content}</p>
+                      <p className="text-xs text-gray-500 mt-1">From: {item.senderName}</p>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                  <MailOpen className="w-16 h-16 text-gray-300 mb-4" />
+                  <p className="text-gray-500 text-lg">
+                    {searchQuery ? 'No notifications found' : 'No notifications yet'}
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </Layout>
