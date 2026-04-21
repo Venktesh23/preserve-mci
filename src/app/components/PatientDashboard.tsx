@@ -63,7 +63,6 @@ export default function PatientDashboard() {
 
   const handleSleepLogSubmit = (data: SleepLogData) => {
     addSleepLog(data);
-    console.log('Sleep log saved to localStorage:', data);
   };
 
   // User name from auth context
@@ -536,7 +535,7 @@ export default function PatientDashboard() {
                     fontSize: '14px',
                     fontWeight: 500,
                   }}
-                  onClick={() => navigate('/modules/1')}
+                  onClick={() => navigate('/modules/week-1')}
                 >
                   Continue Module
                   <ChevronRight size={16} strokeWidth={1.5} color="#6B7280" className="ml-2" />

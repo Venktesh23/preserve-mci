@@ -295,7 +295,13 @@ export const messageAPI = {
   },
 
   async deleteMessage(messageId: string): Promise<{ success: boolean }> {
-    const { error } = await supabase.from('messages').delete().eq('id', messageId);
+    const currentUserId = await getCurrentUserId();
+
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId)
+      .or(`sender_id.eq.${currentUserId},recipient_id.eq.${currentUserId}`);
 
     if (error) {
       throw new Error(error.message);

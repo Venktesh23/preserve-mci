@@ -264,29 +264,42 @@ export function calculateSleepAnalytics(logs: SleepLog[]): SleepAnalytics {
   const bestQuality = Math.max(...qualities);
   const worstQuality = Math.min(...qualities);
 
-  // Calculate streaks
-  const sortedLogs = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  // Build a set of log days for O(1) lookup
+  const logDaySet = new Set(
+    logs.map((log) => {
+      const d = new Date(log.date);
+      d.setHours(0, 0, 0, 0);
+      return d.getTime();
+    })
+  );
+
+  // Current streak: count consecutive days backwards from today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
   let currentStreak = 0;
+  const checkDate = new Date(today);
+  while (logDaySet.has(checkDate.getTime())) {
+    currentStreak++;
+    checkDate.setDate(checkDate.getDate() - 1);
+  }
+
+  // Longest streak: scan chronologically for the longest consecutive run
+  const sortedAsc = [...logs].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   let longestStreak = 0;
   let tempStreak = 0;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  for (let i = 0; i < sortedLogs.length; i++) {
-    const logDate = new Date(sortedLogs[i].date);
-    logDate.setHours(0, 0, 0, 0);
-    const expectedDate = new Date(today);
-    expectedDate.setDate(expectedDate.getDate() - i);
-
-    if (logDate.getTime() === expectedDate.getTime()) {
-      currentStreak++;
-      tempStreak++;
-      longestStreak = Math.max(longestStreak, tempStreak);
+  for (let i = 0; i < sortedAsc.length; i++) {
+    if (i === 0) {
+      tempStreak = 1;
     } else {
-      if (i === 0) currentStreak = 0;
-      tempStreak = 0;
+      const prev = new Date(sortedAsc[i - 1].date);
+      prev.setHours(0, 0, 0, 0);
+      const cur = new Date(sortedAsc[i].date);
+      cur.setHours(0, 0, 0, 0);
+      const diffDays = Math.round((cur.getTime() - prev.getTime()) / 86400000);
+      tempStreak = diffDays === 1 ? tempStreak + 1 : 1;
     }
+    longestStreak = Math.max(longestStreak, tempStreak);
   }
 
   // Patterns

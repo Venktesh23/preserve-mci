@@ -56,10 +56,14 @@ export default function ModulesOverview() {
     let mounted = true;
 
     async function loadModules() {
-      const response = await modulesAPI.getModules();
-      if (!mounted) return;
-      setModules(response.modules);
-      setSummary(response.summary);
+      try {
+        const response = await modulesAPI.getModules();
+        if (!mounted) return;
+        setModules(response.modules);
+        setSummary(response.summary);
+      } catch {
+        // Leave default empty state; ProtectedRoute prevents reaching here unauthenticated.
+      }
     }
 
     void loadModules();

@@ -64,6 +64,18 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
 
   const hoursSlept = useMemo(() => toHours(bedtime, waketime), [bedtime, waketime]);
 
+  const resetForm = () => {
+    setNapMinutes('');
+    setNapTimeOfDay('Did not nap');
+    setBedtime('');
+    setTimeToFallAsleep('');
+    setNightAwakenings('');
+    setTimeAwakeDuringNight('');
+    setWaketime('');
+    setTimeOutOfBed('');
+    setSleepQuality(null);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -138,6 +150,7 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
       },
     });
 
+    resetForm();
     onClose();
   };
 

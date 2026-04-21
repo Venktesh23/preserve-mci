@@ -242,10 +242,11 @@ export default function RegistrationPage() {
     if (validateForm()) {
       setIsLoading(true);
       try {
+        if (!selectedRole) return;
         const name = `${formData.firstName} ${formData.lastName}`;
-        const role = selectedRole === 'care_partner' ? 'care_partner' : selectedRole as 'patient' | 'care_partner' | 'clinician';
-        
-        const createdUser = await signup(formData.email, formData.password, name, role!);
+        const role = selectedRole;
+
+        const createdUser = await signup(formData.email, formData.password, name, role);
 
         try {
           await dataAPI.save('registration_profile', {

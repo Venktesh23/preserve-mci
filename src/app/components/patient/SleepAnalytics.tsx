@@ -39,7 +39,14 @@ export default function SleepAnalytics() {
   }, []);
 
   const isSamplePreview = logs.length === 0;
-  const analyticsSource = isSamplePreview ? sampleLogs : logs;
+
+  // Real logs record quality on 1-10 scale; analytics functions expect 1-5
+  const scaledLogs = useMemo(
+    () => logs.map((log) => ({ ...log, sleepQuality: Math.round(log.sleepQuality / 2) })),
+    [logs]
+  );
+
+  const analyticsSource = isSamplePreview ? sampleLogs : scaledLogs;
   const analytics = useMemo(() => calculateSleepAnalytics(analyticsSource), [analyticsSource]);
 
   const getInsightIcon = (type: string) => {

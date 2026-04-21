@@ -58,6 +58,7 @@ export default function SleepModulePage() {
   const playerContainerRef = useRef<HTMLDivElement | null>(null);
   const shouldAutoplayNextRef = useRef(false);
   const placeholderEndedRef = useRef(false);
+  const mockElapsedMsRef = useRef(0);
 
   useEffect(() => {
     if (!moduleId) {
@@ -81,17 +82,21 @@ export default function SleepModulePage() {
     stopCountdown();
 
     async function load() {
-      const response = await modulesAPI.getModuleWeek(weekKey);
-      if (!mounted) return;
+      try {
+        const response = await modulesAPI.getModuleWeek(weekKey);
+        if (!mounted) return;
 
-      if (!response.module.unlocked) {
-        navigate('/modules');
-        return;
+        if (!response.module.unlocked) {
+          navigate('/modules');
+          return;
+        }
+
+        setModule(response.module);
+        const firstUnwatchedIndex = response.module.queue.findIndex((item) => !item.progress.watched);
+        setActiveQueueIndex(firstUnwatchedIndex >= 0 ? firstUnwatchedIndex : Math.max(response.module.queue.length - 1, 0));
+      } catch {
+        if (mounted) navigate('/modules');
       }
-
-      setModule(response.module);
-      const firstUnwatchedIndex = response.module.queue.findIndex((item) => !item.progress.watched);
-      setActiveQueueIndex(firstUnwatchedIndex >= 0 ? firstUnwatchedIndex : Math.max(response.module.queue.length - 1, 0));
     }
 
     void load();
@@ -114,6 +119,7 @@ export default function SleepModulePage() {
 
   useEffect(() => {
     // Reset playback UI for each newly selected video.
+    mockElapsedMsRef.current = 0;
     setMockElapsedMs(0);
     setIsPlaceholderSimulating(false);
     setIsRealPlaying(false);
@@ -148,22 +154,18 @@ export default function SleepModulePage() {
     }
 
     placeholderTimerRef.current = window.setInterval(() => {
-      setMockElapsedMs((previous) => {
-        const next = previous + 100 * mockSpeed;
-        if (next >= 3000) {
-          if (placeholderTimerRef.current) {
-            window.clearInterval(placeholderTimerRef.current);
-            placeholderTimerRef.current = null;
-          }
-          if (!placeholderEndedRef.current) {
-            placeholderEndedRef.current = true;
-            setIsPlaceholderSimulating(false);
-            void handleQueueVideoEnded();
-          }
-          return 3000;
+      mockElapsedMsRef.current = Math.min(3000, mockElapsedMsRef.current + 100 * mockSpeed);
+      setMockElapsedMs(mockElapsedMsRef.current);
+
+      if (mockElapsedMsRef.current >= 3000 && !placeholderEndedRef.current) {
+        placeholderEndedRef.current = true;
+        if (placeholderTimerRef.current) {
+          window.clearInterval(placeholderTimerRef.current);
+          placeholderTimerRef.current = null;
         }
-        return next;
-      });
+        setIsPlaceholderSimulating(false);
+        void handleQueueVideoEnded();
+      }
     }, 100);
 
     return () => {
@@ -176,18 +178,26 @@ export default function SleepModulePage() {
 
   async function refreshWeek(keepQueueIndex = true) {
     if (!weekKey) return;
-    const response = await modulesAPI.getModuleWeek(weekKey);
-    setModule(response.module);
-    if (!keepQueueIndex) {
-      const firstUnwatchedIndex = response.module.queue.findIndex((item) => !item.progress.watched);
-      setActiveQueueIndex(firstUnwatchedIndex >= 0 ? firstUnwatchedIndex : Math.max(response.module.queue.length - 1, 0));
+    try {
+      const response = await modulesAPI.getModuleWeek(weekKey);
+      setModule(response.module);
+      if (!keepQueueIndex) {
+        const firstUnwatchedIndex = response.module.queue.findIndex((item) => !item.progress.watched);
+        setActiveQueueIndex(firstUnwatchedIndex >= 0 ? firstUnwatchedIndex : Math.max(response.module.queue.length - 1, 0));
+      }
+    } catch {
+      // Silently ignore — module state unchanged.
     }
   }
 
   async function markCurrentQueueVideo(watchedPercent: number) {
     if (!module || !currentQueueVideo) return;
-    await modulesAPI.postVideoProgress(module.weekKey, currentQueueVideo.id, { watchedPercent });
-    await refreshWeek(true);
+    try {
+      await modulesAPI.postVideoProgress(module.weekKey, currentQueueVideo.id, { watchedPercent });
+      await refreshWeek(true);
+    } catch {
+      // Silently ignore — progress will sync on next load.
+    }
   }
 
   function stopCountdown() {
@@ -209,6 +219,7 @@ export default function SleepModulePage() {
 
   function playPlaceholder() {
     if (mockElapsedMs >= 3000) {
+      mockElapsedMsRef.current = 0;
       setMockElapsedMs(0);
       placeholderEndedRef.current = false;
     }
