@@ -11,6 +11,7 @@ import CarePartnerDashboard from "./components/CarePartnerDashboard";
 import ClinicianDashboard from "./components/ClinicianDashboard";
 import ModulesOverview from "./components/ModulesOverview";
 import SleepModulePage from "./components/SleepModulePage";
+import ProgressiveMuscleRelaxationPage from "./components/ProgressiveMuscleRelaxationPage";
 import PatientMessagesCenter from "./components/patient/MessagesCenter";
 import MyProgress from "./components/patient/MyProgress";
 import SleepAnalytics from "./components/patient/SleepAnalytics";
@@ -192,10 +193,26 @@ export const router = createBrowserRouter([
         ),
       },
       {
+        path: "sleep-modules",
+        element: (
+          <ProtectedRoute allowedRoles={['patient']}>
+            <ModulesOverview />
+          </ProtectedRoute>
+        ),
+      },
+      {
         path: "modules/:moduleId",
         element: (
           <ProtectedRoute allowedRoles={['patient']}>
             <SleepModulePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "modules/resources/progressive-muscle-relaxation",
+        element: (
+          <ProtectedRoute allowedRoles={['patient']}>
+            <ProgressiveMuscleRelaxationPage />
           </ProtectedRoute>
         ),
       },

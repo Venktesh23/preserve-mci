@@ -124,6 +124,19 @@
     @apply border-border outline-ring/50;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Keep scrolling fluid on touch devices and nested scroll containers. */
+  html,
+  body,
+  [data-radix-scroll-area-viewport],
+  [class*='overflow-y-'],
+  [class*='overflow-auto'] {
+    -webkit-overflow-scrolling: touch;
+  }
+
   body {
     @apply bg-background text-foreground;
   }

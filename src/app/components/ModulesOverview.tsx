@@ -1,323 +1,313 @@
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
   ArrowLeft,
+  BedDouble,
   BookOpen,
-  CheckCircle,
-  Clock,
+  CheckCircle2,
+  Clock3,
+  Dumbbell,
   Lock,
   Moon,
   Play,
-  TrendingUp,
-  FileText,
-  Download,
-  Brain,
   Wind,
-  Ban,
-  BedDouble,
-  Users,
-  CloudLightning,
 } from 'lucide-react';
-import { Button } from './ui/button';
-import { Progress } from './ui/progress';
-import { getAllModules } from '../data/moduleContent';
-import { useAllModulesProgress } from '../hooks/useModuleProgress';
+import PatientSidebarShell from './patient/PatientSidebarShell';
+import { modulesAPI, type ModuleWithProgress, type ModulesSummary } from '../utils/modulesAPI';
+import { moduleWeekOrder, weekSlugFromKey } from '../data/moduleData';
 
-// Sleep Resources data
-const sleepResources = [
+const staticResources = [
   {
-    id: 'sleep-hygiene',
-    title: 'Sleep Hygiene Fundamentals',
-    description: 'Essential practices and environmental factors that promote quality sleep',
+    id: 'res_progressive_muscle_relaxation',
+    title: 'Progressive Muscle Relaxation',
+    description: 'Guided progressive relaxation exercises to ease tension before sleep.',
+    icon: Dumbbell,
+    path: '/modules/resources/progressive-muscle-relaxation',
+  },
+  {
+    id: 'res_sleep_hygiene',
+    title: 'Sleep Hygiene',
+    description: 'Build a healthier sleep environment and bedtime habits.',
     icon: Moon,
-    color: 'purple',
   },
   {
-    id: 'relaxation',
-    title: 'Relaxation and Wind-Down Techniques',
-    description: 'Guided exercises to calm your mind and prepare for sleep',
+    id: 'res_relaxation',
+    title: 'Autogenic Relaxation',
+    description: 'Short calming exercises to quiet body and mind before sleep.',
     icon: Wind,
-  },
-  {
-    id: 'sleep-interfere',
-    title: 'Activities that Interfere with Sleep',
-    description: 'Common habits and behaviors that disrupt healthy sleep patterns',
-    icon: Ban,
-  },
-  {
-    id: 'stimulus-control',
-    title: 'Stimulus Control',
-    description: 'Evidence-based techniques to strengthen the bed-sleep association',
-    icon: BedDouble,
-  },
-  {
-    id: 'worry-management',
-    title: 'Managing Worry and Racing Thoughts',
-    description: 'Strategies to quiet your mind and reduce nighttime anxiety',
-    icon: CloudLightning,
-  },
-  {
-    id: 'community-resources',
-    title: 'Community Resources',
-    description: 'Additional support, tools, and connections for better sleep health',
-    icon: Users,
   },
 ];
 
+const emptySummary: ModulesSummary = {
+  completedCount: 0,
+  inProgressCount: 0,
+  notStartedCount: 4,
+  overallPercent: 0,
+  watchedVideos: 0,
+  totalVideos: 0,
+};
+
 export default function ModulesOverview() {
   const navigate = useNavigate();
-  const allModules = getAllModules();
-  const progressStats = useAllModulesProgress();
+  const [modules, setModules] = useState<ModuleWithProgress[]>([]);
+  const [summary, setSummary] = useState<ModulesSummary>(emptySummary);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadModules() {
+      const response = await modulesAPI.getModules();
+      if (!mounted) return;
+      setModules(response.modules);
+      setSummary(response.summary);
+    }
+
+    void loadModules();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const modulesByKey = useMemo(() => {
+    return moduleWeekOrder
+      .map((weekKey) => modules.find((item) => item.weekKey === weekKey))
+      .filter((item): item is ModuleWithProgress => Boolean(item));
+  }, [modules]);
 
   return (
-    <div className="nondashboard-ds min-h-screen" style={{ backgroundColor: '#F9FAFB' }}>
+    <PatientSidebarShell>
+      <div className="min-h-screen px-6 py-8 lg:px-10" style={{ backgroundColor: '#F9FAFB' }}>
+        <div className="mx-auto max-w-6xl">
+          <header className="mb-6 flex items-center justify-between">
+            <button
+              onClick={() => navigate('/patient/dashboard')}
+              className="inline-flex items-center gap-1.5 hover:opacity-90"
+              style={{ color: '#7200CA', fontSize: '13px', fontWeight: 500 }}
+            >
+              <ArrowLeft size={16} />
+              <span>Back to Dashboard</span>
+            </button>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>Weekly Sleep Modules</h1>
+          </header>
 
-      <div className="max-w-7xl mx-auto px-6 py-8 lg:py-10">
-        <button
-          onClick={() => navigate('/patient/dashboard')}
-          className="mb-7 flex items-center gap-1.5 transition-colors hover:text-[#7200CA]"
-          style={{ fontSize: '13px', color: '#9333EA' }}
-        >
-          <ArrowLeft size={15} color="currentColor" />
-          <span>Back to Dashboard</span>
-        </button>
-
-        {/* Header Section */}
-        <div className="mb-7">
-          <h1 className="mb-2" style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>
-            Weekly Sleep Modules
-          </h1>
-          <p className="mb-7" style={{ fontSize: '14px', color: '#6B7280', fontWeight: 400 }}>
-            Complete all 4 weeks to master healthy sleep habits and improve your cognitive health.
-          </p>
-
-          {/* Overall Progress Card */}
-          <div className="bg-white rounded-[12px] px-6 py-5" style={{ border: '0.5px solid #E9D5FF' }}>
-            <div className="flex items-center justify-between mb-4">
+          <section className="mb-7 rounded-[12px] bg-white p-6" style={{ border: '0.5px solid #E9D5FF' }}>
+            <div className="mb-4 flex items-end justify-between">
               <div>
                 <h2 style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A2E' }}>Overall Progress</h2>
                 <p style={{ fontSize: '13px', color: '#9CA3AF' }}>
-                  {progressStats.completedCount} of {progressStats.totalModules} modules completed
+                  {summary.watchedVideos} of {summary.totalVideos} queue videos completed
                 </p>
               </div>
-              <div style={{ fontSize: '22px', fontWeight: 700, color: '#7200CA' }}>
-                {progressStats.averageProgress}%
-              </div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#7200CA' }}>{summary.overallPercent}%</div>
             </div>
 
-            <div className="h-[6px] rounded-[3px] overflow-hidden" style={{ backgroundColor: '#F3E8FF' }}>
+            <div className="h-[6px] overflow-hidden rounded" style={{ backgroundColor: '#F3E8FF' }}>
               <div
-                className="h-full rounded-[3px] transition-all duration-500"
+                className="h-full transition-all duration-300"
                 style={{
+                  width: `${summary.overallPercent}%`,
                   background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
-                  width: `${progressStats.averageProgress}%`,
                 }}
-              ></div>
+              />
             </div>
 
-            <div className="mt-5 grid grid-cols-3">
-              <div className="text-center py-2">
-                <div style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>{progressStats.completedCount}</div>
-                <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>Completed</div>
+            <div className="mt-5 grid grid-cols-3 text-center">
+              <div>
+                <p style={{ fontSize: '22px', color: '#1A1A2E', fontWeight: 700 }}>{summary.completedCount}</p>
+                <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Completed</p>
               </div>
-              <div className="text-center py-2" style={{ borderLeft: '0.5px solid #E9D5FF', borderRight: '0.5px solid #E9D5FF' }}>
-                <div style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>{progressStats.inProgressCount}</div>
-                <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>In Progress</div>
+              <div style={{ borderLeft: '0.5px solid #E9D5FF', borderRight: '0.5px solid #E9D5FF' }}>
+                <p style={{ fontSize: '22px', color: '#1A1A2E', fontWeight: 700 }}>{summary.inProgressCount}</p>
+                <p style={{ fontSize: '12px', color: '#9CA3AF' }}>In Progress</p>
               </div>
-              <div className="text-center py-2">
-                <div style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>{progressStats.notStartedCount}</div>
-                <div style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '2px' }}>Not Started</div>
+              <div>
+                <p style={{ fontSize: '22px', color: '#1A1A2E', fontWeight: 700 }}>{summary.notStartedCount}</p>
+                <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Not Started</p>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
 
-        {/* Modules Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-[14px]">
-          {allModules.map((module) => {
-            const moduleProgress = progressStats.allModules[module.weekNumber.toString()];
-            const isCompleted = moduleProgress?.completedAt !== null;
-            const inProgress = moduleProgress && moduleProgress.progress > 0 && !isCompleted;
-            const progress = moduleProgress?.progress || 0;
+          <section className="mb-10">
+            <h2 className="mb-4" style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
+              Weekly Modules
+            </h2>
+            <div className="grid grid-cols-1 gap-[14px] lg:grid-cols-2">
+              {modulesByKey.map((module) => {
+                const watchedCount = module.queue.filter((video) => video.progress.watched).length;
+                const isInProgress = watchedCount > 0 && !module.completed;
 
-            return (
-              <div
-                key={module.weekNumber}
-                className="bg-white rounded-[12px] transition-colors"
-                style={{ border: '0.5px solid #E9D5FF' }}
-              >
-                <div className="p-5">
-                  {/* Module Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <span
+                return (
+                  <div
+                    key={module.weekKey}
+                    className="relative rounded-[12px] bg-white p-5"
+                    style={{ border: '0.5px solid #E9D5FF' }}
+                    title={
+                      module.unlocked
+                        ? ''
+                        : `Complete Week ${module.weekNumber - 1} to unlock`
+                    }
+                  >
+                    {!module.unlocked && (
+                      <div
+                        className="absolute inset-0 z-10 rounded-[12px]"
+                        style={{ background: 'rgba(255,255,255,0.72)' }}
+                      >
+                        <div className="absolute right-4 top-4 rounded-full bg-white p-2" style={{ border: '0.5px solid #E9D5FF' }}>
+                          <Lock size={16} color="#7200CA" />
+                        </div>
+                        <div className="absolute bottom-3 left-4">
+                          <p style={{ fontSize: '12px', color: '#7200CA', fontWeight: 500 }}>
+                            Complete Week {module.weekNumber - 1} to unlock
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mb-3 flex items-start justify-between">
+                      <div>
+                        <p
                           style={{
                             fontSize: '11px',
-                            fontWeight: 500,
                             color: '#9CA3AF',
+                            fontWeight: 600,
                             textTransform: 'uppercase',
                             letterSpacing: '0.06em',
                           }}
                         >
-                          Week {module.weekNumber} of {module.totalWeeks}
-                        </span>
-                        {isCompleted && (
-                          <div className="flex items-center space-x-1 rounded-full" style={{ backgroundColor: '#DCFCE7', color: '#166534', fontSize: '11px', fontWeight: 500, padding: '2px 10px' }}>
-                            <CheckCircle size={12} />
-                            <span>Completed</span>
-                          </div>
-                        )}
-                        {inProgress && !isCompleted && (
-                          <div className="flex items-center space-x-1 rounded-full" style={{ backgroundColor: '#F3E8FF', color: '#6B21A8', fontSize: '11px', fontWeight: 500, padding: '2px 10px' }}>
-                            <TrendingUp size={12} />
-                            <span>In Progress</span>
-                          </div>
+                          Week {module.weekNumber} of 4
+                        </p>
+                        <h3
+                          className="line-clamp-2"
+                          style={{ fontSize: '16px', color: '#1A1A2E', fontWeight: 600, lineHeight: 1.35, minHeight: '43px' }}
+                        >
+                          {module.title}
+                        </h3>
+                        <p
+                          className="line-clamp-2"
+                          style={{ fontSize: '13px', color: '#9CA3AF', lineHeight: 1.35, minHeight: '35px' }}
+                        >
+                          {module.subtitle}
+                        </p>
+                        {module.completed && (
+                          <span
+                            className="mt-2 inline-flex rounded-full px-2 py-0.5"
+                            style={{ backgroundColor: '#DCFCE7', color: '#166534', fontSize: '11px', fontWeight: 500 }}
+                          >
+                            Completed
+                          </span>
                         )}
                       </div>
-                      <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#1A1A2E' }}>
-                        {module.title}
-                      </h3>
-                      <p className="line-clamp-2" style={{ fontSize: '13px', color: '#9CA3AF', marginTop: '2px' }}>
-                        {module.subtitle}
+                      <div className="rounded-[10px] p-2.5" style={{ backgroundColor: '#F3E8FF' }}>
+                        {module.completed ? (
+                          <CheckCircle2 size={20} color="#7200CA" strokeWidth={1.5} />
+                        ) : (
+                          <BookOpen size={20} color="#7200CA" strokeWidth={1.5} />
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="mb-4 flex items-center gap-4" style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock3 size={13} color="#C4B5FD" />
+                        {module.duration}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Play size={13} color="#C4B5FD" />
+                        {module.queue.length} videos
+                      </span>
+                    </div>
+
+                    <div className="mb-4 h-[4px] overflow-hidden rounded" style={{ backgroundColor: '#F3E8FF' }}>
+                      <div
+                        className="h-full"
+                        style={{
+                          width: `${module.queue.length ? Math.round((watchedCount / module.queue.length) * 100) : 0}%`,
+                          background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
+                        }}
+                      />
+                    </div>
+
+                    {isInProgress && (
+                      <p className="mb-3" style={{ fontSize: '12px', color: '#9CA3AF' }}>
+                        {watchedCount} of {module.queue.length} videos completed
                       </p>
-                    </div>
+                    )}
 
-                    <div
-                      className="w-10 h-10 rounded-[10px] flex items-center justify-center flex-shrink-0 ml-4"
-                      style={{ backgroundColor: '#F3E8FF' }}
+                    <button
+                      disabled={!module.unlocked}
+                      onClick={() => navigate(`/modules/${weekSlugFromKey(module.weekKey)}`)}
+                      className="w-full rounded-[10px] py-2.5"
+                      style={
+                        module.completed
+                          ? {
+                              backgroundColor: 'white',
+                              color: '#7200CA',
+                              border: '1px solid #7200CA',
+                              fontWeight: 500,
+                              fontSize: '14px',
+                            }
+                          : {
+                              color: 'white',
+                              border: 'none',
+                              fontWeight: 600,
+                              fontSize: '14px',
+                              background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
+                              opacity: module.unlocked ? 1 : 0.55,
+                            }
+                      }
                     >
-                      {isCompleted ? (
-                        <CheckCircle size={20} color="#7200CA" strokeWidth={1.5} />
-                      ) : (
-                        <BookOpen size={20} color="#7200CA" strokeWidth={1.5} />
-                      )}
-                    </div>
+                      {module.completed ? 'Review Module' : isInProgress ? 'Continue Module' : 'Start Module'}
+                    </button>
                   </div>
+                );
+              })}
+            </div>
+          </section>
 
-                  {/* Module Info */}
-                  <div className="flex items-center space-x-4 mb-4" style={{ fontSize: '12px', color: '#9CA3AF' }}>
-                    <div className="flex items-center space-x-1">
-                      <Clock size={13} color="#C4B5FD" strokeWidth={1.5} />
-                      <span>{module.estimatedTime} min</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Play size={13} color="#C4B5FD" strokeWidth={1.5} />
-                      <span>Video + Exercise</span>
-                    </div>
-                  </div>
-
-                  {/* Progress Bar */}
-                  {progress > 0 && (
-                    <div className="mb-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <span style={{ fontSize: '11px', color: '#9CA3AF' }}>Progress</span>
-                        <span style={{ fontSize: '11px', color: '#9CA3AF' }}>{progress}%</span>
-                      </div>
-                      <div className="h-[4px] rounded-[2px] overflow-hidden" style={{ backgroundColor: '#F3E8FF' }}>
-                        <div
-                          className="h-full rounded-[2px] transition-all duration-500"
-                          style={{
-                            background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
-                            width: `${progress}%`,
-                          }}
-                        ></div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Action Button */}
-                  <Button
-                    onClick={() => navigate(`/modules/${module.weekNumber}`)}
-                    className={`w-full rounded-[10px] transition-all ${
-                      isCompleted
-                        ? 'bg-white text-[#7200CA] border border-[#7200CA] hover:bg-[#F3E8FF]'
-                        : inProgress
-                        ? 'text-white hover:opacity-90'
-                        : 'text-white hover:opacity-90'
-                    }`}
-                    style={
-                      isCompleted
-                        ? { padding: '10px 0', fontSize: '14px', fontWeight: 500 }
-                        : {
-                            padding: '10px 0',
-                            fontSize: '14px',
-                            fontWeight: 600,
-                            border: 'none',
-                            background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
-                          }
-                    }
-                  >
-                    {isCompleted
-                      ? 'Review Module'
-                      : inProgress
-                      ? 'Continue Learning'
-                      : 'Start Module'}
-                  </Button>
-                </div>
-
-                {/* Quick Preview */}
-                <div className="px-5 pb-5" style={{ borderTop: '0.5px solid #F3E8FF', marginTop: '14px' }}>
-                  <p style={{ fontSize: '12px', fontWeight: 600, color: '#1A1A2E', marginTop: '14px', marginBottom: '8px' }}>You&apos;ll learn:</p>
-                  <ul className="space-y-1">
-                    {module.introduction.objectives.slice(0, 2).map((objective, index) => (
-                      <li key={index} className="flex items-start">
-                        <span className="mr-2 mt-2 inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: '#7200CA' }}></span>
-                        <span className="line-clamp-1" style={{ fontSize: '13px', color: '#4B5563', lineHeight: 1.7 }}>{objective}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Sleep Resources Section */}
-        <div className="mt-7">
-          <div className="mb-7">
-            <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
+          <section>
+            <h2 className="mb-1" style={{ fontSize: '18px', fontWeight: 600, color: '#1A1A2E' }}>
               Sleep Resources
             </h2>
-            <p style={{ fontSize: '14px', color: '#6B7280' }}>
-              Access additional tools and information to support your sleep journey
+            <p className="mb-4" style={{ fontSize: '14px', color: '#6B7280' }}>
+              Watchable reference resources from your weekly program.
             </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-[14px]">
-            {sleepResources.map((resource) => {
-              const Icon = resource.icon;
-              return (
-                <div
-                  key={resource.id}
-                  className="bg-white rounded-[12px] p-[18px] cursor-pointer"
-                  style={{ border: '0.5px solid #E9D5FF', transition: 'all 150ms ease' }}
-                  onClick={() => {
-                    // Navigate to resource page or show modal
-                    console.log('Resource clicked:', resource.id);
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#C4B5FD';
-                    e.currentTarget.style.backgroundColor = '#FDFBFF';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#E9D5FF';
-                    e.currentTarget.style.backgroundColor = '#FFFFFF';
-                  }}
-                >
-                  <div className="w-10 h-10 rounded-[10px] flex items-center justify-center" style={{ backgroundColor: '#F3E8FF' }}>
-                    <Icon size={20} color="#7200CA" strokeWidth={1.5} />
+            <div className="grid grid-cols-1 gap-[14px] md:grid-cols-2 lg:grid-cols-3">
+              {staticResources.map((resource) => {
+                const Icon = resource.icon;
+                return (
+                  <div
+                    key={resource.id}
+                    className="rounded-[12px] bg-white p-4"
+                    style={{ border: '0.5px solid #E9D5FF' }}
+                  >
+                    <div className="mb-3 inline-flex rounded-[10px] p-2.5" style={{ backgroundColor: '#F3E8FF' }}>
+                      <Icon size={20} color="#7200CA" />
+                    </div>
+                    <h3 style={{ fontSize: '14px', color: '#1A1A2E', fontWeight: 600 }}>{resource.title}</h3>
+                    <p style={{ fontSize: '13px', color: '#6B7280', lineHeight: 1.6 }}>{resource.description}</p>
+                    {resource.path && (
+                      <button
+                        onClick={() => navigate(resource.path)}
+                        className="mt-3 rounded-[8px] px-3 py-1.5"
+                        style={{
+                          border: '0.5px solid #C4B5FD',
+                          color: '#7200CA',
+                          backgroundColor: 'white',
+                          fontSize: '12px',
+                          fontWeight: 500,
+                        }}
+                      >
+                        Open Resource
+                      </button>
+                    )}
                   </div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A2E', marginTop: '12px' }}>
-                    {resource.title}
-                  </h3>
-                  <p style={{ fontSize: '13px', color: '#6B7280', lineHeight: 1.6, marginTop: '4px' }}>{resource.description}</p>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          </section>
         </div>
-
       </div>
-    </div>
+    </PatientSidebarShell>
   );
 }

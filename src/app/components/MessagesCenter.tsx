@@ -172,7 +172,7 @@ export default function MessagesCenter({
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
+              <h1 className="mb-1" style={{ color: '#1f1f3d', fontSize: '22px', fontWeight: 700 }}>
                 {pageTitle || 'Notifications'}
               </h1>
               <p className="text-lg text-gray-600">

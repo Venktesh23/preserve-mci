@@ -1,476 +1,706 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   ArrowLeft,
-  BookOpen,
-  PlayCircle,
-  CheckCircle,
-  Clock,
-  FileText,
-  PenTool,
-  Moon,
-  Lightbulb,
-  Target,
-  Award,
-  ChevronRight,
-  Download,
-  Video,
   Check,
-  ChevronLeft,
+  CheckCircle,
+  Lock,
+  Maximize2,
+  Pause,
+  Play,
+  SkipBack,
+  SkipForward,
 } from 'lucide-react';
-import { Button } from './ui/button';
-import { Progress } from './ui/progress';
-import { Checkbox } from './ui/checkbox';
-import VideoPlayer from './VideoPlayer';
-import QuizSection from './QuizSection';
-import ResourcesSection from './ResourcesSection';
-import { useModuleProgress } from '../hooks/useModuleProgress';
-import { toast } from 'sonner';
-import { getModuleContent, getModuleNavigation } from '../data/moduleContent';
+import PatientSidebarShell from './patient/PatientSidebarShell';
+import {
+  moduleWeekOrder,
+  toWeekKeyFromSlug,
+  weekNumberFromKey,
+  weekSlugFromKey,
+  type ModuleWeekKey,
+} from '../data/moduleData';
+import { modulesAPI, type ModuleWithProgress } from '../utils/modulesAPI';
+
+interface PlayerSelection {
+  id: string;
+  title: string;
+  description: string;
+  duration: string;
+  videoUrl: string;
+  kind: 'queue' | 'resource';
+}
 
 export default function SleepModulePage() {
   const navigate = useNavigate();
   const { moduleId } = useParams();
-  const currentModuleId = moduleId || '1';
 
-  // Get module content
-  const moduleData = getModuleContent(currentModuleId);
-  const navigation = getModuleNavigation(currentModuleId);
+  const weekKey = useMemo(() => {
+    if (!moduleId) return null;
+    return toWeekKeyFromSlug(moduleId);
+  }, [moduleId]);
 
-  // Use localStorage-backed module progress
-  const {
-    moduleProgress,
-    isModuleComplete,
-    markVideoComplete,
-    markQuizComplete,
-    markExerciseComplete,
-    saveNotes,
-    markModuleComplete,
-    updateLastAccessed,
-  } = useModuleProgress(currentModuleId);
+  const [module, setModule] = useState<ModuleWithProgress | null>(null);
+  const [activeQueueIndex, setActiveQueueIndex] = useState(0);
+  const [activeTab, setActiveTab] = useState<'queue' | 'resources'>('queue');
+  const [selectedResource, setSelectedResource] = useState<PlayerSelection | null>(null);
+  const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
+  const [pendingNextIndex, setPendingNextIndex] = useState<number | null>(null);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
+  const [isPlaceholderSimulating, setIsPlaceholderSimulating] = useState(false);
+  const [mockElapsedMs, setMockElapsedMs] = useState(0);
+  const [mockSpeed, setMockSpeed] = useState(1);
+  const [isRealPlaying, setIsRealPlaying] = useState(false);
 
-  // Local UI state (separate from persisted state to avoid loops)
-  const [notes, setNotes] = useState('');
+  const countdownTimerRef = useRef<number | null>(null);
+  const placeholderTimerRef = useRef<number | null>(null);
+  const playerRef = useRef<HTMLVideoElement | null>(null);
+  const fullscreenContainerRef = useRef<HTMLDivElement | null>(null);
+  const playerContainerRef = useRef<HTMLDivElement | null>(null);
+  const shouldAutoplayNextRef = useRef(false);
+  const placeholderEndedRef = useRef(false);
 
-  // Sync notes from storage only when module changes
   useEffect(() => {
-    setNotes(moduleProgress.notes);
-  }, [currentModuleId]); // Only when module ID changes, not when progress changes
+    if (!moduleId) {
+      navigate('/modules', { replace: true });
+      return;
+    }
 
-  // Update last accessed only when module changes
-  useEffect(() => {
-    updateLastAccessed();
-  }, [currentModuleId]); // Intentionally not including updateLastAccessed
+    if (!toWeekKeyFromSlug(moduleId)) {
+      navigate('/modules', { replace: true });
+    }
+  }, [moduleId, navigate]);
 
-  // Debounced save for notes
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (notes !== moduleProgress.notes) {
-        saveNotes(notes);
+    if (!weekKey) return;
+    let mounted = true;
+
+    // Route changes reuse this component instance, so clear transient UI state.
+    setShowCompletionModal(false);
+    setSelectedResource(null);
+    setActiveTab('queue');
+    stopCountdown();
+
+    async function load() {
+      const response = await modulesAPI.getModuleWeek(weekKey);
+      if (!mounted) return;
+
+      if (!response.module.unlocked) {
+        navigate('/modules');
+        return;
       }
-    }, 1000); // Save 1 second after user stops typing
 
-    return () => clearTimeout(timeoutId);
-  }, [notes, moduleProgress.notes, saveNotes]);
+      setModule(response.module);
+      const firstUnwatchedIndex = response.module.queue.findIndex((item) => !item.progress.watched);
+      setActiveQueueIndex(firstUnwatchedIndex >= 0 ? firstUnwatchedIndex : Math.max(response.module.queue.length - 1, 0));
+    }
 
-  const handleCompleteLesson = () => {
-    markModuleComplete();
-    toast.success('🎉 Module completed!', {
-      description: 'All your progress has been saved. Keep up the great work!',
-      duration: 4000,
-    });
-    
-    // Navigate to next module or dashboard
-    setTimeout(() => {
-      if (navigation.hasNext) {
-        navigate(`/modules/${navigation.nextWeek}`);
-      } else {
-        navigate('/patient/dashboard');
+    void load();
+
+    return () => {
+      mounted = false;
+    };
+  }, [navigate, weekKey]);
+
+  useEffect(() => {
+    return () => {
+      if (countdownTimerRef.current) {
+        window.clearInterval(countdownTimerRef.current);
       }
+      if (placeholderTimerRef.current) {
+        window.clearTimeout(placeholderTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    // Reset playback UI for each newly selected video.
+    setMockElapsedMs(0);
+    setIsPlaceholderSimulating(false);
+    setIsRealPlaying(false);
+    placeholderEndedRef.current = false;
+  }, [activeQueueIndex, selectedResource?.id]);
+
+  const currentQueueVideo = module?.queue[activeQueueIndex] ?? null;
+  const currentSelection: PlayerSelection | null = selectedResource ?? (currentQueueVideo
+    ? {
+        id: currentQueueVideo.id,
+        title: currentQueueVideo.title,
+        description: currentQueueVideo.description,
+        duration: currentQueueVideo.duration,
+        videoUrl: currentQueueVideo.videoUrl,
+        kind: 'queue',
+      }
+    : null);
+
+  const nextQueueVideo = module && pendingNextIndex !== null ? module.queue[pendingNextIndex] : null;
+
+  useEffect(() => {
+    const isQueuePlaceholder = Boolean(
+      currentSelection && currentSelection.kind === 'queue' && !currentSelection.videoUrl,
+    );
+
+    if (!isQueuePlaceholder || !isPlaceholderSimulating) {
+      if (placeholderTimerRef.current) {
+        window.clearInterval(placeholderTimerRef.current);
+        placeholderTimerRef.current = null;
+      }
+      return;
+    }
+
+    placeholderTimerRef.current = window.setInterval(() => {
+      setMockElapsedMs((previous) => {
+        const next = previous + 100 * mockSpeed;
+        if (next >= 3000) {
+          if (placeholderTimerRef.current) {
+            window.clearInterval(placeholderTimerRef.current);
+            placeholderTimerRef.current = null;
+          }
+          if (!placeholderEndedRef.current) {
+            placeholderEndedRef.current = true;
+            setIsPlaceholderSimulating(false);
+            void handleQueueVideoEnded();
+          }
+          return 3000;
+        }
+        return next;
+      });
+    }, 100);
+
+    return () => {
+      if (placeholderTimerRef.current) {
+        window.clearInterval(placeholderTimerRef.current);
+        placeholderTimerRef.current = null;
+      }
+    };
+  }, [currentSelection, isPlaceholderSimulating, mockSpeed]);
+
+  async function refreshWeek(keepQueueIndex = true) {
+    if (!weekKey) return;
+    const response = await modulesAPI.getModuleWeek(weekKey);
+    setModule(response.module);
+    if (!keepQueueIndex) {
+      const firstUnwatchedIndex = response.module.queue.findIndex((item) => !item.progress.watched);
+      setActiveQueueIndex(firstUnwatchedIndex >= 0 ? firstUnwatchedIndex : Math.max(response.module.queue.length - 1, 0));
+    }
+  }
+
+  async function markCurrentQueueVideo(watchedPercent: number) {
+    if (!module || !currentQueueVideo) return;
+    await modulesAPI.postVideoProgress(module.weekKey, currentQueueVideo.id, { watchedPercent });
+    await refreshWeek(true);
+  }
+
+  function stopCountdown() {
+    if (countdownTimerRef.current) {
+      window.clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    setCountdownSeconds(null);
+    setPendingNextIndex(null);
+  }
+
+  function stopPlaceholderSimulation() {
+    if (placeholderTimerRef.current) {
+      window.clearInterval(placeholderTimerRef.current);
+      placeholderTimerRef.current = null;
+    }
+    setIsPlaceholderSimulating(false);
+  }
+
+  function playPlaceholder() {
+    if (mockElapsedMs >= 3000) {
+      setMockElapsedMs(0);
+      placeholderEndedRef.current = false;
+    }
+    setIsPlaceholderSimulating(true);
+  }
+
+  function startCountdownForNext(nextIndex: number | null) {
+    if (!module || nextIndex === null) {
+      setShowCompletionModal(true);
+      return;
+    }
+
+    stopCountdown();
+    setPendingNextIndex(nextIndex);
+    setCountdownSeconds(3);
+
+    countdownTimerRef.current = window.setInterval(() => {
+      setCountdownSeconds((previous) => {
+        if (previous === null) return null;
+        if (previous <= 1) {
+          if (countdownTimerRef.current) {
+            window.clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
+          shouldAutoplayNextRef.current = true;
+          setActiveQueueIndex(nextIndex);
+          setSelectedResource(null);
+          setPendingNextIndex(null);
+          return null;
+        }
+        return previous - 1;
+      });
     }, 1000);
-  };
+  }
 
-  // If module not found, show error
-  if (!moduleData) {
+  async function handleQueueVideoEnded() {
+    if (!module || !currentQueueVideo) return;
+
+    await markCurrentQueueVideo(100);
+    stopPlaceholderSimulation();
+
+    const lastIndex = module.queue.length - 1;
+    const isLast = activeQueueIndex >= lastIndex;
+
+    if (isLast) {
+      setShowCompletionModal(true);
+      return;
+    }
+
+    startCountdownForNext(activeQueueIndex + 1);
+  }
+
+  function queueStatus(index: number): 'Playing' | 'Up next' | 'Completed' | 'Locked' {
+    if (!module) return 'Locked';
+
+    const item = module.queue[index];
+    if (item.progress.watched) return 'Completed';
+    if (index === activeQueueIndex && !selectedResource) return 'Playing';
+    if (index === activeQueueIndex + 1) return 'Up next';
+    if (index < activeQueueIndex) return 'Completed';
+    return 'Locked';
+  }
+
+  function stepStyle(status: ReturnType<typeof queueStatus>) {
+    if (status === 'Playing') {
+      return { borderLeft: '2px solid #7200CA', backgroundColor: '#F9F7FF' };
+    }
+
+    return { borderLeft: '2px solid transparent', backgroundColor: 'white' };
+  }
+
+  const nextWeekKey = useMemo(() => {
+    if (!module) return null;
+    const index = moduleWeekOrder.indexOf(module.weekKey);
+    if (index < 0 || index === moduleWeekOrder.length - 1) return null;
+    return moduleWeekOrder[index + 1];
+  }, [module]);
+
+  useEffect(() => {
+    if (!module || selectedResource) return;
+    if (!shouldAutoplayNextRef.current) return;
+
+    shouldAutoplayNextRef.current = false;
+
+    const queueVideo = module.queue[activeQueueIndex];
+    if (!queueVideo) return;
+
+    if (!queueVideo.videoUrl) {
+      playPlaceholder();
+      return;
+    }
+
+    window.setTimeout(() => {
+      const player = playerRef.current;
+      if (!player) return;
+      void player.play().catch(() => {
+        // Browser autoplay policies can block play; controls remain available.
+      });
+    }, 80);
+  }, [activeQueueIndex, module, selectedResource]);
+
+  if (!weekKey || !module || !currentSelection) {
     return (
-      <div className="nondashboard-ds min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-3xl mb-4" style={{ color: '#1f1f3d' }}>
-            Module Not Found
-          </h1>
-          <p className="text-lg text-gray-600 mb-6">
-            The module you're looking for doesn't exist.
-          </p>
-          <Button onClick={() => navigate('/patient/dashboard')}>
-            Return to Dashboard
-          </Button>
+      <PatientSidebarShell>
+        <div className="min-h-screen px-6 py-8 lg:px-10" style={{ backgroundColor: '#F9FAFB' }}>
+          <div className="mx-auto max-w-5xl rounded-xl bg-white p-8 text-center" style={{ border: '0.5px solid #E9D5FF' }}>
+            <h1 style={{ color: '#1A1A2E', fontSize: '20px', fontWeight: 700 }}>Loading module...</h1>
+          </div>
         </div>
-      </div>
+      </PatientSidebarShell>
     );
   }
 
-  const canComplete = moduleProgress.videoWatched && moduleProgress.exerciseCompleted;
+  const isQueueSelection = currentSelection.kind === 'queue';
+  const queueHasPrevious = isQueueSelection && activeQueueIndex > 0;
+  const queueHasNext = isQueueSelection && activeQueueIndex < module.queue.length - 1;
+  const isPlaceholderMode = !currentSelection.videoUrl;
+  const isPlaying = isPlaceholderMode ? isPlaceholderSimulating : isRealPlaying;
+
+  function goToPrevious() {
+    if (!queueHasPrevious) return;
+    stopPlaceholderSimulation();
+    stopCountdown();
+    setSelectedResource(null);
+    setActiveQueueIndex((previous) => Math.max(0, previous - 1));
+  }
+
+  function goToNext() {
+    if (!queueHasNext) return;
+    stopPlaceholderSimulation();
+    stopCountdown();
+    setSelectedResource(null);
+    setActiveQueueIndex((previous) => Math.min(module.queue.length - 1, previous + 1));
+  }
+
+  function togglePlayback() {
+    if (!isQueueSelection) return;
+
+    if (isPlaceholderMode) {
+      setIsPlaceholderSimulating((previous) => !previous);
+      return;
+    }
+
+    const player = playerRef.current;
+    if (!player) return;
+
+    if (player.paused) {
+      void player.play();
+    } else {
+      player.pause();
+    }
+  }
+
+  function requestFullSize() {
+    const target = fullscreenContainerRef.current ?? playerContainerRef.current;
+    if (!target) return;
+
+    if (document.fullscreenElement) {
+      void document.exitFullscreen();
+      return;
+    }
+
+    void target.requestFullscreen?.();
+  }
 
   return (
-    <div className="nondashboard-ds min-h-screen bg-gray-50">
-      {/* Top Navigation Bar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            {/* Back to Dashboard */}
+    <PatientSidebarShell>
+      <div className="min-h-screen px-6 py-8 lg:px-10" style={{ backgroundColor: '#F9FAFB' }}>
+        <div className="mx-auto max-w-6xl">
+          <header className="mb-6 flex items-center justify-between">
             <button
-              onClick={() => navigate('/patient/dashboard')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+              onClick={() => navigate('/modules')}
+              className="inline-flex items-center gap-1.5 hover:opacity-90"
+              style={{ color: '#7200CA', fontSize: '13px', fontWeight: 500 }}
             >
-              <ArrowLeft className="w-5 h-5" />
-              <span className="text-base">Back to Dashboard</span>
+              <ArrowLeft size={16} />
+              <span>Back to Dashboard</span>
             </button>
+            <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>Weekly Sleep Modules</h1>
+          </header>
 
-            {/* Module Navigation */}
-            <div className="flex items-center space-x-2">
-              {navigation.hasPrevious && (
-                <button
-                  onClick={() => navigate(`/modules/${navigation.previousWeek}`)}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-gray-100 transition-colors"
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,70%)_minmax(0,30%)]">
+            <section>
+              <div ref={fullscreenContainerRef}>
+                <div
+                  ref={playerContainerRef}
+                  className="relative overflow-hidden rounded-[12px]"
+                  style={{ backgroundColor: '#1A1A2E', aspectRatio: '16 / 9' }}
                 >
-                  <ChevronLeft className="w-5 h-5 text-gray-600" />
-                  <span className="hidden sm:inline text-base text-gray-700">Previous</span>
-                </button>
-              )}
-              {navigation.hasNext && (
-                <button
-                  onClick={() => navigate(`/modules/${navigation.nextWeek}`)}
-                  className="flex items-center space-x-2 px-4 py-2 rounded-xl hover:bg-gray-100 transition-colors"
-                >
-                  <span className="hidden sm:inline text-base text-gray-700">Next</span>
-                  <ChevronRight className="w-5 h-5 text-gray-600" />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="max-w-5xl mx-auto px-6 py-8 lg:py-12">
-        {/* Module Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-3 mb-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-              <Moon className="w-6 h-6 text-white" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="text-base text-purple-600">
-                  Week {moduleData.weekNumber} of {moduleData.totalWeeks}
-                </span>
-                <span className="text-base text-gray-400">•</span>
-                <div className="flex items-center space-x-2 text-gray-600">
-                  <Clock className="w-4 h-4" />
-                  <span className="text-base">{moduleData.estimatedTime} minutes</span>
-                </div>
-              </div>
-              <h1 className="text-3xl sm:text-4xl" style={{ color: '#1f1f3d' }}>
-                {moduleData.title}
-              </h1>
-              <p className="text-lg text-gray-600 mt-1">{moduleData.subtitle}</p>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-base" style={{ color: '#1f1f3d' }}>
-                Your Progress
-              </span>
-              <span className="text-base text-purple-600">
-                {moduleProgress.progress}%
-              </span>
-            </div>
-            <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-purple-500 to-purple-700 rounded-full transition-all duration-500"
-                style={{ width: `${moduleProgress.progress}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Sequential Content Flow */}
-        <div className="space-y-6">
-          {/* Step 1: Introduction/Overview */}
-          <div className="bg-gradient-to-br from-teal-50 to-teal-100 rounded-3xl border-2 border-teal-200 p-8">
-            <div className="flex items-start space-x-4 mb-6">
-              <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center text-white text-xl">
-                1
-              </div>
-              <div className="flex-1">
-                <h2 className="text-2xl mb-2" style={{ color: '#1f1f3d' }}>
-                  {moduleData.introduction.title}
-                </h2>
-                <p className="text-base text-gray-700 leading-relaxed">
-                  {moduleData.introduction.description}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 border border-teal-200">
-              <h3 className="text-lg mb-4" style={{ color: '#1f1f3d' }}>
-                Learning Objectives:
-              </h3>
-              <ul className="space-y-3">
-                {moduleData.introduction.objectives.map((objective, index) => (
-                  <li key={index} className="flex items-start space-x-3">
-                    <CheckCircle className="w-5 h-5 flex-shrink-0 text-teal-600 mt-0.5" />
-                    <span className="text-base text-gray-700">{objective}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          {/* Step 2: Video Lesson - Primary Focus */}
-          <div className="bg-white rounded-3xl shadow-xl border-2 border-purple-200 p-8">
-            <div className="flex items-start space-x-4 mb-6">
-              <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white text-xl">
-                2
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-2">
-                  <Video className="w-6 h-6 text-purple-600" />
-                  <h2 className="text-2xl" style={{ color: '#1f1f3d' }}>
-                    Watch the Video Lesson
-                  </h2>
-                </div>
-                <p className="text-base text-gray-600">{moduleData.video.description}</p>
-              </div>
-            </div>
-
-            {/* Real Video Player */}
-            <VideoPlayer
-              videoUrl={moduleData.video.videoUrl}
-              title={moduleData.video.title}
-              duration={moduleData.video.duration}
-              isCompleted={moduleProgress.videoWatched}
-              onComplete={() => {
-                markVideoComplete();
-                toast.success('Video completed!', {
-                  description: 'Your progress has been saved.',
-                });
-              }}
-            />
-          </div>
-
-          {/* Step 3: Exercise/Activity */}
-          <div className="bg-white rounded-3xl shadow-xl border-2 border-purple-200 p-8">
-            <div className="flex items-start space-x-4 mb-6">
-              <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white text-xl">
-                3
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center space-x-2 mb-2">
-                  <PenTool className="w-6 h-6 text-purple-600" />
-                  <h2 className="text-2xl" style={{ color: '#1f1f3d' }}>
-                    Complete the Exercise
-                  </h2>
-                </div>
-                <p className="text-base text-gray-600">{moduleData.exercise.description}</p>
-              </div>
-            </div>
-
-            {/* Exercise Checklist */}
-            <div className="bg-gray-50 rounded-2xl p-6 border border-gray-200 mb-6">
-              <h3 className="text-lg mb-4" style={{ color: '#1f1f3d' }}>
-                {moduleData.exercise.title}
-              </h3>
-              <div className="space-y-3">
-                {moduleData.exercise.tasks.map((task, index) => (
-                  <label
-                    key={index}
-                    className="flex items-start space-x-3 p-4 rounded-xl bg-white border-2 border-gray-200 hover:border-purple-300 transition-colors cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      className="w-5 h-5 flex-shrink-0 rounded border-2 border-gray-300 text-purple-600 focus:ring-2 focus:ring-purple-500 mt-0.5"
+                  {currentSelection.videoUrl ? (
+                    <video
+                      ref={playerRef}
+                      className="h-full w-full"
+                      controls
+                      autoPlay
+                      src={currentSelection.videoUrl}
+                      onPlay={() => setIsRealPlaying(true)}
+                      onPause={() => setIsRealPlaying(false)}
+                      onEnded={() => {
+                        setIsRealPlaying(false);
+                        if (currentSelection.kind === 'queue') {
+                          void handleQueueVideoEnded();
+                        }
+                      }}
                     />
-                    <span className="text-base text-gray-700">{task}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (currentSelection.kind === 'queue') {
+                          playPlaceholder();
+                        }
+                      }}
+                      className="h-full w-full"
+                      style={{ backgroundColor: '#1A1A2E' }}
+                    >
+                      <div className="flex h-full items-center justify-center">
+                        <Play size={48} color="white" fill="white" opacity={0.6} />
+                      </div>
+                    </button>
+                  )}
 
-            {!moduleProgress.exerciseCompleted && (
-              <Button
-                onClick={() => {
-                  markExerciseComplete();
-                  toast.success('Exercise completed!', {
-                    description: 'Great job! Your progress has been saved.',
-                  });
-                }}
-                className="w-full h-14 rounded-xl text-lg bg-gradient-to-r from-teal-600 to-teal-700 hover:from-teal-700 hover:to-teal-800 text-white shadow-md"
-              >
-                Mark Exercise as Complete
-                <Check className="w-5 h-5 ml-2" />
-              </Button>
-            )}
-
-            {moduleProgress.exerciseCompleted && (
-              <div className="flex items-center justify-center space-x-3 bg-teal-50 rounded-xl p-4 border border-teal-200">
-                <CheckCircle className="w-6 h-6 text-teal-600" />
-                <span className="text-base text-teal-800">Exercise completed!</span>
-              </div>
-            )}
-          </div>
-
-          {/* Key Takeaways Section */}
-          <div className="bg-gradient-to-br from-yellow-50 to-amber-50 rounded-3xl border-2 border-amber-200 p-8">
-            <div className="flex items-start space-x-4 mb-6">
-              <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-                <Lightbulb className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h2 className="text-2xl mb-2" style={{ color: '#1f1f3d' }}>
-                  Key Takeaways
-                </h2>
-                <p className="text-base text-gray-600">
-                  Remember these important points from this week's lesson
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl p-6 border border-amber-200">
-              <ul className="space-y-4">
-                {moduleData.keyTakeaways.map((takeaway, index) => (
-                  <li key={index} className="flex items-start space-x-3">
-                    <div className="w-8 h-8 flex-shrink-0 rounded-lg bg-amber-100 flex items-center justify-center text-amber-700 text-base">
-                      {index + 1}
+                  {countdownSeconds !== null && nextQueueVideo && (
+                    <div
+                      className="absolute inset-0 flex flex-col items-center justify-center"
+                      style={{ backgroundColor: 'rgba(26,26,46,0.85)', borderRadius: '12px' }}
+                    >
+                      <p style={{ fontSize: '16px', color: 'white', fontWeight: 500 }}>
+                        Next up: {nextQueueVideo.title}
+                      </p>
+                      <p style={{ fontSize: '48px', color: '#C4B5FD', fontWeight: 700, lineHeight: 1.1 }}>
+                        {countdownSeconds}
+                      </p>
+                      <button
+                        onClick={() => {
+                          if (pendingNextIndex !== null) {
+                            stopCountdown();
+                            shouldAutoplayNextRef.current = true;
+                            setActiveQueueIndex(pendingNextIndex);
+                            setSelectedResource(null);
+                          }
+                        }}
+                        className="rounded-lg px-4 py-2"
+                        style={{
+                          background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
+                          color: 'white',
+                          fontSize: '13px',
+                          fontWeight: 600,
+                        }}
+                      >
+                        Play now
+                      </button>
+                      <button
+                        onClick={() => {
+                          stopCountdown();
+                          stopPlaceholderSimulation();
+                        }}
+                        className="mt-2"
+                        style={{ color: 'white', fontSize: '13px', textDecoration: 'underline' }}
+                      >
+                        Cancel
+                      </button>
                     </div>
-                    <span className="text-base text-gray-700 leading-relaxed pt-1">
-                      {takeaway}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+                  )}
+                </div>
 
-          {/* Reflection/Notes Section */}
-          <div className="bg-white rounded-3xl shadow-md border border-gray-200 p-8">
-            <div className="flex items-start space-x-4 mb-6">
-              <div className="w-12 h-12 flex-shrink-0 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1">
-                <h2 className="text-2xl mb-2" style={{ color: '#1f1f3d' }}>
-                  Your Reflections (Optional)
-                </h2>
-                <p className="text-base text-gray-600">
-                  Take a moment to write down your thoughts, questions, or goals for the week
-                </p>
-              </div>
-            </div>
+                {isQueueSelection && (
+                  <div
+                    className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-[10px] bg-white px-3 py-2"
+                    style={{ border: '0.5px solid #E9D5FF' }}
+                  >
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={goToPrevious}
+                        disabled={!queueHasPrevious}
+                        className="rounded px-2 py-1"
+                        style={{ color: queueHasPrevious ? '#7200CA' : '#C4B5FD' }}
+                      >
+                        <SkipBack size={16} />
+                      </button>
+                      <button
+                        onClick={togglePlayback}
+                        className="rounded px-2 py-1"
+                        style={{ color: '#7200CA' }}
+                      >
+                        {isPlaying ? <Pause size={16} /> : <Play size={16} fill="currentColor" />}
+                      </button>
+                      <button
+                        onClick={goToNext}
+                        disabled={!queueHasNext}
+                        className="rounded px-2 py-1"
+                        style={{ color: queueHasNext ? '#7200CA' : '#C4B5FD' }}
+                      >
+                        <SkipForward size={16} />
+                      </button>
+                    </div>
 
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="What did you learn today? What changes do you want to make to your sleep routine?"
-              className="w-full h-40 p-4 rounded-xl border-2 border-gray-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-200 transition-colors text-base resize-none"
-              aria-label="Reflection notes"
-            />
-            <p className="text-sm text-gray-500 mt-2">
-              Your notes are private and will be saved to your account
-            </p>
-          </div>
-
-          {/* Quiz Section */}
-          {moduleData.quiz && (
-            <QuizSection
-              quiz={moduleData.quiz}
-              isCompleted={moduleProgress.quizCompleted}
-              savedScore={moduleProgress.quizScore}
-              savedAnswers={moduleProgress.quizAnswers}
-              onComplete={(score, answers) => {
-                markQuizComplete(score, answers);
-                toast.success('Quiz completed!', {
-                  description: `You scored ${score}%. Great job!`,
-                });
-              }}
-            />
-          )}
-
-          {/* Resources Section */}
-          {moduleData.resources && moduleData.resources.length > 0 && (
-            <ResourcesSection resources={moduleData.resources} />
-          )}
-
-          {/* Bottom Action Area */}
-          <div className="sticky bottom-0 bg-white rounded-3xl shadow-xl border-2 border-gray-200 p-8">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-6">
-              <div className="text-center sm:text-left">
-                <h3 className="text-xl mb-2" style={{ color: '#1f1f3d' }}>
-                  {canComplete ? 'Great Work!' : 'Keep Going!'}
-                </h3>
-                <p className="text-base text-gray-600">
-                  {canComplete
-                    ? 'You\'ve completed all required activities. Mark this lesson as complete.'
-                    : 'Complete the video and exercise above to finish this lesson.'}
-                </p>
+                    <div className="flex items-center gap-2">
+                      <label style={{ fontSize: '12px', color: '#6B7280' }}>Speed</label>
+                      <select
+                        value={mockSpeed}
+                        onChange={(event) => {
+                          const speed = Number.parseFloat(event.target.value);
+                          setMockSpeed(speed);
+                          if (playerRef.current) {
+                            playerRef.current.playbackRate = speed;
+                          }
+                        }}
+                        className="rounded px-2 py-1"
+                        style={{ border: '0.5px solid #C4B5FD', fontSize: '12px', color: '#1A1A2E' }}
+                      >
+                        <option value={0.5}>0.5x</option>
+                        <option value={1}>1x</option>
+                        <option value={1.25}>1.25x</option>
+                        <option value={1.5}>1.5x</option>
+                        <option value={2}>2x</option>
+                      </select>
+                      <button
+                        onClick={requestFullSize}
+                        className="rounded px-2 py-1"
+                        style={{ color: '#7200CA' }}
+                      >
+                        <Maximize2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-                <Button
-                  onClick={() => navigate('/dashboard')}
-                  variant="outline"
-                  className="h-14 px-6 rounded-xl text-base border-2 border-gray-300 hover:border-purple-500 hover:bg-purple-50 w-full sm:w-auto"
+              <h2 className="mt-4" style={{ fontSize: '18px', color: '#1A1A2E', fontWeight: 700 }}>
+                {currentSelection.title}
+              </h2>
+              <p style={{ fontSize: '13px', color: '#9CA3AF' }}>
+                Week {module.weekNumber} | {currentSelection.duration}
+              </p>
+              <p className="mt-2" style={{ fontSize: '14px', color: '#4B5563', lineHeight: 1.7 }}>
+                {currentSelection.description}
+              </p>
+
+              <div className="mt-5 space-y-2 rounded-[12px] bg-white p-4" style={{ border: '0.5px solid #E9D5FF' }}>
+                {module.queue.map((item, index) => {
+                  const status = queueStatus(index);
+                  const isCompleted = status === 'Completed';
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-[10px] px-3 py-2"
+                      style={stepStyle(status)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="inline-flex h-6 w-6 items-center justify-center rounded-full"
+                          style={
+                            isCompleted
+                              ? { backgroundColor: '#DCFCE7', color: '#166534' }
+                              : { backgroundColor: '#F3E8FF', color: '#7200CA' }
+                          }
+                        >
+                          {isCompleted ? <Check size={12} /> : <span style={{ fontSize: '12px', fontWeight: 600 }}>{index + 1}</span>}
+                        </div>
+                        <div>
+                          <p style={{ fontSize: '14px', color: '#1A1A2E' }}>{item.title}</p>
+                          <p style={{ fontSize: '12px', color: '#9CA3AF' }}>{item.duration}</p>
+                        </div>
+                      </div>
+                      <span style={{ fontSize: '12px', color: '#9CA3AF' }}>{status}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            <aside className="h-fit self-start rounded-[12px] bg-white p-4 lg:sticky lg:top-8" style={{ border: '0.5px solid #E9D5FF' }}>
+              <div className="mb-3 flex gap-4">
+                <button
+                  onClick={() => setActiveTab('queue')}
+                  style={
+                    activeTab === 'queue'
+                      ? { color: '#7200CA', borderBottom: '2px solid #7200CA', fontWeight: 600, fontSize: '13px' }
+                      : { color: '#9CA3AF', fontSize: '13px' }
+                  }
+                  className="pb-1"
                 >
-                  Save & Continue Later
-                </Button>
-                <Button
-                  onClick={handleCompleteLesson}
-                  disabled={!canComplete}
-                  className={`h-14 px-8 rounded-xl text-base shadow-lg w-full sm:w-auto ${
-                    canComplete
-                      ? 'bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  Mark as Complete
-                  <ChevronRight className="w-5 h-5 ml-2" />
-                </Button>
+                  Queue
+                </button>
               </div>
-            </div>
 
-            {/* Progress Indicators */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="flex items-center justify-center gap-6 text-sm text-gray-600">
-                <div className="flex items-center space-x-2">
-                  {moduleProgress.videoWatched ? (
-                    <CheckCircle className="w-5 h-5 text-teal-600" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
-                  )}
-                  <span>Video</span>
+              {activeTab === 'queue' && (
+                <div className="space-y-2">
+                  {module.queue.map((item, index) => {
+                    const status = queueStatus(index);
+                    const isCurrent = index === activeQueueIndex && !selectedResource;
+                    const isCompleted = item.progress.watched;
+
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          if (status === 'Locked') return;
+                          stopPlaceholderSimulation();
+                          setActiveQueueIndex(index);
+                          setSelectedResource(null);
+                          stopCountdown();
+                        }}
+                        className="w-full rounded-[8px] px-2 py-2 text-left"
+                        style={
+                          isCurrent
+                            ? { borderLeft: '2px solid #7200CA', backgroundColor: '#F9F7FF' }
+                            : { opacity: isCompleted ? 0.5 : 1 }
+                        }
+                      >
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="relative flex h-[50px] w-[80px] items-center justify-center rounded-[6px]"
+                            style={{ backgroundColor: '#1A1A2E' }}
+                          >
+                            <Play size={14} color="white" fill="white" opacity={0.7} />
+                            {isCompleted && (
+                              <div className="absolute -right-1 -top-1 rounded-full bg-[#DCFCE7] p-1">
+                                <Check size={10} color="#166534" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="truncate" style={{ fontSize: '13px', color: '#1A1A2E', fontWeight: 500 }}>
+                              {item.title}
+                            </p>
+                            <p style={{ fontSize: '11px', color: '#9CA3AF' }}>{item.duration}</p>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-                <div className="flex items-center space-x-2">
-                  {moduleProgress.exerciseCompleted ? (
-                    <CheckCircle className="w-5 h-5 text-teal-600" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
-                  )}
-                  <span>Exercise</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  {notes.trim() ? (
-                    <CheckCircle className="w-5 h-5 text-teal-600" />
-                  ) : (
-                    <div className="w-5 h-5 rounded-full border-2 border-gray-300"></div>
-                  )}
-                  <span>Notes (Optional)</span>
-                </div>
-              </div>
-            </div>
+              )}
+            </aside>
           </div>
         </div>
       </div>
-    </div>
+
+      {showCompletionModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-6"
+          style={{ backgroundColor: 'rgba(26,26,46,0.5)' }}
+        >
+          <div className="w-full max-w-[440px] rounded-[16px] bg-white p-8 text-center">
+            <CheckCircle size={48} color="#7200CA" className="mx-auto" />
+            <h2 className="mt-4" style={{ fontSize: '20px', fontWeight: 700, color: '#1A1A2E' }}>
+              Week {weekNumberFromKey(module.weekKey)} Complete!
+            </h2>
+            <p className="mt-2" style={{ fontSize: '14px', color: '#6B7280' }}>
+              You&apos;ve completed all videos for this week. Come back next week to continue your program.
+            </p>
+
+            {nextWeekKey && (
+              <button
+                onClick={async () => {
+                  const nextWeek = await modulesAPI.getModuleWeek(nextWeekKey);
+                  if (nextWeek.module.unlocked) {
+                    navigate(`/modules/${weekSlugFromKey(nextWeekKey)}`);
+                    return;
+                  }
+                  navigate('/modules');
+                }}
+                className="mt-5 w-full rounded-[10px] py-2.5"
+                style={{
+                  background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
+                  color: 'white',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                }}
+              >
+                Start Week {weekNumberFromKey(nextWeekKey)}
+              </button>
+            )}
+
+            <button
+              onClick={() => navigate('/modules')}
+              className="mt-3 w-full rounded-[10px] py-2.5"
+              style={{
+                border: '1px solid #7200CA',
+                color: '#7200CA',
+                backgroundColor: 'white',
+                fontSize: '14px',
+                fontWeight: 500,
+              }}
+            >
+              Back to Modules
+            </button>
+          </div>
+        </div>
+      )}
+    </PatientSidebarShell>
   );
 }
