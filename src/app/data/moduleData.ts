@@ -6,6 +6,7 @@ export interface ModuleQueueVideo {
   description: string;
   duration: string;
   videoUrl: string;
+  captionUrl?: string;
   fileName: string;
 }
 
@@ -13,6 +14,7 @@ export interface ModuleResource {
   id: string;
   title: string;
   videoUrl: string;
+  captionUrl?: string;
   fileName: string;
   icon: 'BedDouble' | 'Moon' | 'Wind';
 }

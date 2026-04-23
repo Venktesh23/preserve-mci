@@ -5,6 +5,7 @@ import {
   Moon,
   Clock,
   User,
+  Pencil,
   Lock,
   Mail,
   Phone,
@@ -18,23 +19,47 @@ import { Switch } from '../ui/switch';
 import { useAuth } from '../../contexts/useAuth';
 import { useReminders } from '../../hooks/useReminders';
 import PatientLayout from './PatientLayout';
+import { formatPhoneNumber } from '../../utils/phone';
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, updateUser } = useAuth();
   const { preferences, updatePreferences } = useReminders();
 
   const [localPreferences, setLocalPreferences] = useState(preferences);
-  const [saved, setSaved] = useState(false);
+  const [mobileNumber, setMobileNumber] = useState(formatPhoneNumber(user?.mobile_number || ''));
+  const [isEditingMobile, setIsEditingMobile] = useState(false);
+  const [profileSaved, setProfileSaved] = useState(false);
+  const [notificationSaved, setNotificationSaved] = useState(false);
+
+  const hasNotificationChanges = JSON.stringify(localPreferences) !== JSON.stringify(preferences);
 
   useEffect(() => {
     setLocalPreferences(preferences);
-  }, [preferences]);
+    setMobileNumber(formatPhoneNumber(user?.mobile_number || ''));
+    setIsEditingMobile(false);
+    setProfileSaved(false);
+    setNotificationSaved(false);
+  }, [preferences, user]);
 
-  const handleSave = () => {
+  const handleProfileSave = async () => {
+    const currentMobile = formatPhoneNumber(user?.mobile_number || '');
+    if (mobileNumber !== currentMobile) {
+      await updateUser({ mobile_number: mobileNumber });
+    }
+    setIsEditingMobile(false);
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 3000);
+  };
+
+  const handleNotificationSave = () => {
     updatePreferences(localPreferences);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setNotificationSaved(true);
+    setTimeout(() => setNotificationSaved(false), 3000);
+  };
+
+  const enableMobileEdit = () => {
+    setIsEditingMobile(true);
   };
 
   const handleToggle = (key: keyof typeof localPreferences) => {
@@ -55,13 +80,15 @@ export default function SettingsPage() {
     <PatientLayout>
       <div className="space-y-6 max-w-4xl" style={{ backgroundColor: '#F9FAFB' }}>
         {/* Header */}
-        <div>
-          <h1 className="mb-2" style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>
-            Settings & Preferences
-          </h1>
-          <p style={{ fontSize: '14px', color: '#6B7280', fontWeight: 400 }}>
-            Customize your experience and notification preferences
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="mb-2" style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>
+              Settings & Preferences
+            </h1>
+            <p style={{ fontSize: '14px', color: '#6B7280', fontWeight: 400 }}>
+              Customize your experience and notification preferences
+            </p>
+          </div>
         </div>
 
         {/* Profile Information */}
@@ -92,6 +119,35 @@ export default function SettingsPage() {
               </div>
 
               <div className="p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
+                <div className="flex items-center justify-between" style={{ marginBottom: '4px' }}>
+                  <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Mobile Number</p>
+                  <button
+                    type="button"
+                    onClick={enableMobileEdit}
+                    aria-label="Edit mobile number"
+                    className="text-[#7200CA] hover:opacity-80"
+                  >
+                    <Pencil size={14} strokeWidth={2} />
+                  </button>
+                </div>
+                <input
+                  type="tel"
+                  value={mobileNumber}
+                  onChange={(e) => setMobileNumber(formatPhoneNumber(e.target.value))}
+                  className="w-full"
+                  readOnly={!isEditingMobile}
+                  style={{
+                    fontSize: '14px',
+                    fontWeight: 500,
+                    color: '#1A1A2E',
+                    background: 'transparent',
+                    border: 'none',
+                    padding: '0',
+                  }}
+                />
+              </div>
+
+              <div className="p-4 rounded-[10px] bg-white" style={{ border: '0.5px solid #E9D5FF' }}>
                 <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>Role</p>
                 <p className="capitalize" style={{ fontSize: '14px', fontWeight: 500, color: '#1A1A2E' }}>
                   {user?.role?.replace('_', ' ') || 'Patient'}
@@ -108,6 +164,23 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
+
+            {isEditingMobile && (
+              <div className="flex justify-end pt-2">
+                <Button
+                  onClick={handleProfileSave}
+                  className="text-white h-10 px-5 rounded-[10px] hover:opacity-90"
+                  style={{
+                    border: 'none',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
+                  }}
+                >
+                  {profileSaved ? 'Saved!' : 'Save Profile Changes'}
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -255,7 +328,7 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Save Button */}
+        {/* Notification Save Button */}
         <div className="flex items-center justify-between">
           <Button
             onClick={() => navigate('/patient/dashboard')}
@@ -266,28 +339,30 @@ export default function SettingsPage() {
             Cancel
           </Button>
 
-          <Button
-            onClick={handleSave}
-            className="text-white h-12 px-6 rounded-[10px] hover:opacity-90"
-            style={{
-              border: 'none',
-              fontSize: '14px',
-              fontWeight: 600,
-              background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
-            }}
-          >
-            {saved ? (
-              <>
-                <CheckCircle className="w-5 h-5 mr-2" />
-                Saved!
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5 mr-2" />
-                Save Changes
-              </>
-            )}
-          </Button>
+          {hasNotificationChanges && (
+            <Button
+              onClick={handleNotificationSave}
+              className="text-white h-12 px-6 rounded-[10px] hover:opacity-90"
+              style={{
+                border: 'none',
+                fontSize: '14px',
+                fontWeight: 600,
+                background: 'linear-gradient(90deg, #6D28D9 0%, #5B21B6 100%)',
+              }}
+            >
+              {notificationSaved ? (
+                <>
+                  <CheckCircle className="w-5 h-5 mr-2" />
+                  Saved!
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5 mr-2" />
+                  Save Notification Changes
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
     </PatientLayout>

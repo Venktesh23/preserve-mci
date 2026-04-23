@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
   ArrowLeft,
+  Captions,
   Check,
   CheckCircle,
   Lock,
@@ -27,6 +28,7 @@ interface PlayerSelection {
   description: string;
   duration: string;
   videoUrl: string;
+  captionUrl?: string;
   kind: 'queue' | 'resource';
 }
 
@@ -50,6 +52,8 @@ export default function SleepModulePage() {
   const [mockElapsedMs, setMockElapsedMs] = useState(0);
   const [mockSpeed, setMockSpeed] = useState(1);
   const [isRealPlaying, setIsRealPlaying] = useState(false);
+  const [captionsEnabled, setCaptionsEnabled] = useState(false);
+  const [captionStatus, setCaptionStatus] = useState<'ready' | 'unavailable'>('unavailable');
 
   const countdownTimerRef = useRef<number | null>(null);
   const placeholderTimerRef = useRef<number | null>(null);
@@ -124,6 +128,8 @@ export default function SleepModulePage() {
     setIsPlaceholderSimulating(false);
     setIsRealPlaying(false);
     placeholderEndedRef.current = false;
+    setCaptionsEnabled(false);
+    setCaptionStatus('unavailable');
   }, [activeQueueIndex, selectedResource?.id]);
 
   const currentQueueVideo = module?.queue[activeQueueIndex] ?? null;
@@ -135,8 +141,28 @@ export default function SleepModulePage() {
         duration: currentQueueVideo.duration,
         videoUrl: currentQueueVideo.videoUrl,
         kind: 'queue',
+        captionUrl: currentQueueVideo.captionUrl,
       }
     : null);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !currentSelection?.videoUrl) {
+      setCaptionStatus('unavailable');
+      return;
+    }
+
+    const tracks = Array.from(player.textTracks || []);
+    if (tracks.length === 0) {
+      setCaptionStatus('unavailable');
+      return;
+    }
+
+    setCaptionStatus('ready');
+    tracks.forEach((track) => {
+      track.mode = captionsEnabled ? 'showing' : 'hidden';
+    });
+  }, [captionsEnabled, currentSelection?.id, currentSelection?.videoUrl]);
 
   const nextQueueVideo = module && pendingNextIndex !== null ? module.queue[pendingNextIndex] : null;
 
@@ -409,6 +435,26 @@ export default function SleepModulePage() {
                   className="relative overflow-hidden rounded-[12px]"
                   style={{ backgroundColor: '#1A1A2E', aspectRatio: '16 / 9' }}
                 >
+                  <button
+                    onClick={() => setCaptionsEnabled((previous) => !previous)}
+                    className="absolute right-3 top-3 z-20 rounded px-2 py-1 inline-flex items-center gap-1"
+                    style={{
+                      color: captionsEnabled ? '#FFFFFF' : '#E5E7EB',
+                      border: captionsEnabled ? '1px solid #FFFFFF' : '1px solid #9CA3AF',
+                      backgroundColor: 'rgba(26, 26, 46, 0.55)',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                    }}
+                    title={
+                      captionStatus === 'ready'
+                        ? 'Toggle captions'
+                        : 'Captions unavailable for this video'
+                    }
+                  >
+                    <Captions size={14} />
+                    <span>CC</span>
+                  </button>
+
                   {currentSelection.videoUrl ? (
                     <video
                       ref={playerRef}
@@ -416,15 +462,31 @@ export default function SleepModulePage() {
                       controls
                       autoPlay
                       src={currentSelection.videoUrl}
+                      crossOrigin="anonymous"
                       onPlay={() => setIsRealPlaying(true)}
                       onPause={() => setIsRealPlaying(false)}
+                      onLoadedMetadata={() => {
+                        const player = playerRef.current;
+                        if (!player) return;
+                        const hasTracks = Array.from(player.textTracks || []).length > 0;
+                        setCaptionStatus(hasTracks ? 'ready' : 'unavailable');
+                      }}
                       onEnded={() => {
                         setIsRealPlaying(false);
                         if (currentSelection.kind === 'queue') {
                           void handleQueueVideoEnded();
                         }
                       }}
-                    />
+                    >
+                      {currentSelection.captionUrl && (
+                        <track
+                          kind="captions"
+                          src={currentSelection.captionUrl}
+                          srcLang="en"
+                          label="English"
+                        />
+                      )}
+                    </video>
                   ) : (
                     <button
                       onClick={() => {
@@ -545,6 +607,12 @@ export default function SleepModulePage() {
                       </button>
                     </div>
                   </div>
+                )}
+
+                {captionsEnabled && captionStatus === 'unavailable' && (
+                  <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '6px' }}>
+                    Live captions are enabled, but this video does not include a caption track yet.
+                  </p>
                 )}
               </div>
 

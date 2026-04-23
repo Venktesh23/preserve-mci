@@ -1,22 +1,37 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router';
 import {
+  AlertTriangle,
   ArrowLeft,
   BedDouble,
   BookOpen,
   CheckCircle2,
   Clock3,
   Dumbbell,
+  House,
   Lock,
   Moon,
   Play,
   Wind,
 } from 'lucide-react';
-import PatientSidebarShell from './patient/PatientSidebarShell';
 import { modulesAPI, type ModuleWithProgress, type ModulesSummary } from '../utils/modulesAPI';
 import { moduleWeekOrder, weekSlugFromKey } from '../data/moduleData';
 
-const staticResources = [
+type ResourceLink = {
+  label: string;
+  url: string;
+};
+
+type StaticResource = {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ComponentType<{ size?: number; color?: string }>;
+  path?: string;
+  links?: ResourceLink[];
+};
+
+const staticResources: StaticResource[] = [
   {
     id: 'res_progressive_muscle_relaxation',
     title: 'Progressive Muscle Relaxation',
@@ -28,13 +43,45 @@ const staticResources = [
     id: 'res_sleep_hygiene',
     title: 'Sleep Hygiene',
     description: 'Build a healthier sleep environment and bedtime habits.',
-    icon: Moon,
+    icon: House,
+    path: '/modules/resources/sleep-hygiene',
   },
   {
     id: 'res_relaxation',
     title: 'Autogenic Relaxation',
     description: 'Short calming exercises to quiet body and mind before sleep.',
     icon: Wind,
+    path: '/modules/resources/autogenic-relaxation',
+  },
+  {
+    id: 'res_stimulus_control',
+    title: 'Stimulus Control',
+    description: 'Practical steps to strengthen your bed-sleep association.',
+    icon: BedDouble,
+    path: '/modules/resources/stimulus-control',
+  },
+  {
+    id: 'res_activities_interfer_sleep',
+    title: 'Activities That Interfere with Sleep',
+    description: 'Identify daily habits that can delay or disturb sleep.',
+    icon: AlertTriangle,
+    path: '/modules/resources/activities-that-interfere-with-sleep',
+  },
+  {
+    id: 'res_community_resources',
+    title: 'Community Resources',
+    description: 'Find support resources and educational materials in your community.',
+    icon: BookOpen,
+    links: [
+      {
+        label: 'AASM resources for sleep, insomnia, and apnea (Sleep education for patients)',
+        url: 'https://sleepeducation.org/patients/',
+      },
+      {
+        label: 'Alzheimer\'s Association resources (Early stages of cognitive impairment)',
+        url: 'https://www.alz.org/alzheimers-dementia/stages',
+      },
+    ],
   },
 ];
 
@@ -51,6 +98,14 @@ export default function ModulesOverview() {
   const navigate = useNavigate();
   const [modules, setModules] = useState<ModuleWithProgress[]>([]);
   const [summary, setSummary] = useState<ModulesSummary>(emptySummary);
+  const [expandedResourceIds, setExpandedResourceIds] = useState<Record<string, boolean>>({});
+
+  const toggleResourceLinks = (resourceId: string) => {
+    setExpandedResourceIds((prev) => ({
+      ...prev,
+      [resourceId]: !prev[resourceId],
+    }));
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -80,9 +135,8 @@ export default function ModulesOverview() {
   }, [modules]);
 
   return (
-    <PatientSidebarShell>
-      <div className="min-h-screen px-6 py-8 lg:px-10" style={{ backgroundColor: '#F9FAFB' }}>
-        <div className="mx-auto max-w-6xl">
+    <div className="min-h-screen px-6 py-8 lg:px-10" style={{ backgroundColor: '#F9FAFB' }}>
+      <div className="mx-auto max-w-6xl">
           <header className="mb-6 flex items-center justify-between">
             <button
               onClick={() => navigate('/patient/dashboard')}
@@ -282,18 +336,19 @@ export default function ModulesOverview() {
                 return (
                   <div
                     key={resource.id}
-                    className="rounded-[12px] bg-white p-4"
+                    className="h-full rounded-[12px] bg-white p-4 flex flex-col"
                     style={{ border: '0.5px solid #E9D5FF' }}
                   >
-                    <div className="mb-3 inline-flex rounded-[10px] p-2.5" style={{ backgroundColor: '#F3E8FF' }}>
+                    <div className="mb-3 inline-flex self-start rounded-[10px] p-2.5" style={{ backgroundColor: '#F3E8FF' }}>
                       <Icon size={20} color="#7200CA" />
                     </div>
                     <h3 style={{ fontSize: '14px', color: '#1A1A2E', fontWeight: 600 }}>{resource.title}</h3>
                     <p style={{ fontSize: '13px', color: '#6B7280', lineHeight: 1.6 }}>{resource.description}</p>
+                    <div className="mt-auto pt-3">
                     {resource.path && (
                       <button
                         onClick={() => navigate(resource.path)}
-                        className="mt-3 rounded-[8px] px-3 py-1.5"
+                        className="rounded-[8px] px-3 py-1.5"
                         style={{
                           border: '0.5px solid #C4B5FD',
                           color: '#7200CA',
@@ -305,13 +360,54 @@ export default function ModulesOverview() {
                         Open Resource
                       </button>
                     )}
+
+                    {resource.links && (
+                      <div>
+                        <button
+                          onClick={() => toggleResourceLinks(resource.id)}
+                          className="rounded-[8px] px-3 py-1.5"
+                          style={{
+                            border: '0.5px solid #C4B5FD',
+                            color: '#7200CA',
+                            backgroundColor: 'white',
+                            fontSize: '12px',
+                            fontWeight: 500,
+                          }}
+                        >
+                          View Resources
+                        </button>
+
+                        {expandedResourceIds[resource.id] && (
+                          <div
+                            className="mt-3 rounded-[10px] px-3 py-2"
+                            style={{ border: '0.5px solid #E9D5FF', backgroundColor: '#F9FAFB' }}
+                          >
+                            <ul className="space-y-2">
+                              {resource.links.map((link) => (
+                                <li key={link.url}>
+                                  <a
+                                    href={link.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="underline hover:opacity-90"
+                                    style={{ fontSize: '13px', color: '#7200CA', fontWeight: 500 }}
+                                  >
+                                    {link.label}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    </div>
                   </div>
                 );
               })}
             </div>
           </section>
-        </div>
       </div>
-    </PatientSidebarShell>
+    </div>
   );
 }

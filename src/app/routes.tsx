@@ -12,6 +12,8 @@ import ClinicianDashboard from "./components/ClinicianDashboard";
 import ModulesOverview from "./components/ModulesOverview";
 import SleepModulePage from "./components/SleepModulePage";
 import ProgressiveMuscleRelaxationPage from "./components/ProgressiveMuscleRelaxationPage";
+import AutogenicRelaxationPage from "./components/AutogenicRelaxationPage";
+import SleepResourceDetailPage from "./components/SleepResourceDetailPage";
 import PatientMessagesCenter from "./components/patient/MessagesCenter";
 import MyProgress from "./components/patient/MyProgress";
 import SleepAnalytics from "./components/patient/SleepAnalytics";
@@ -22,6 +24,8 @@ import CarePartnerMessagesCenter from "./components/care-partner/CarePartnerMess
 import ClinicianMessagesCenter from "./components/clinician/ClinicianMessagesCenter";
 import NotFound from "./components/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import ClinicianSettingsPage from "./components/clinician/SettingsPage";
+import CarePartnerSettingsPage from "./components/care-partner/SettingsPage";
 
 /**
  * Application routing configuration
@@ -98,6 +102,22 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['patient']}>
             <SettingsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "clinician/settings",
+        element: (
+          <ProtectedRoute allowedRoles={['clinician']}>
+            <ClinicianSettingsPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/settings",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner']}>
+            <CarePartnerSettingsPage />
           </ProtectedRoute>
         ),
       },
@@ -213,6 +233,22 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute allowedRoles={['patient']}>
             <ProgressiveMuscleRelaxationPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "modules/resources/autogenic-relaxation",
+        element: (
+          <ProtectedRoute allowedRoles={['patient']}>
+            <AutogenicRelaxationPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "modules/resources/:resourceId",
+        element: (
+          <ProtectedRoute allowedRoles={['patient']}>
+            <SleepResourceDetailPage />
           </ProtectedRoute>
         ),
       },

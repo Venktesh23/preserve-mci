@@ -7,6 +7,7 @@ type AppUser = {
   email: string;
   name: string;
   role: UserRole;
+  mobile_number: string;
 };
 
 type ProfileRow = {
@@ -14,6 +15,7 @@ type ProfileRow = {
   email: string;
   full_name: string;
   role: UserRole;
+  mobile_number: string;
 };
 
 function normalizeAuthErrorMessage(rawMessage: string): string {
@@ -37,19 +39,21 @@ function normalizeAuthErrorMessage(rawMessage: string): string {
 function toAppUser(user: any, profile: ProfileRow | null): AppUser {
   const roleFromMeta = user.user_metadata?.role as UserRole | undefined;
   const nameFromMeta = user.user_metadata?.name as string | undefined;
+  const mobileFromMeta = user.user_metadata?.mobile_number as string | undefined;
 
   return {
     id: user.id,
     email: profile?.email ?? user.email ?? '',
     name: profile?.full_name ?? nameFromMeta ?? 'User',
     role: profile?.role ?? roleFromMeta ?? 'patient',
+    mobile_number: profile?.mobile_number ?? mobileFromMeta ?? '',
   };
 }
 
 async function getProfile(userId: string): Promise<ProfileRow | null> {
   const { data, error } = await supabase
     .from('profiles')
-    .select('id, email, full_name, role')
+    .select('id, email, full_name, role, mobile_number')
     .eq('id', userId)
     .maybeSingle();
 
@@ -61,14 +65,21 @@ async function getProfile(userId: string): Promise<ProfileRow | null> {
   return (data as ProfileRow | null) ?? null;
 }
 
-async function upsertOwnProfile(user: any, fallbackName?: string, fallbackRole?: UserRole) {
+async function upsertOwnProfile(
+  user: any,
+  fallbackName?: string,
+  fallbackRole?: UserRole,
+  fallbackMobile?: string
+) {
   const metadataRole = user.user_metadata?.role as UserRole | undefined;
+  const metadataMobile = user.user_metadata?.mobile_number as string | undefined;
 
   const profilePayload = {
     id: user.id,
     email: user.email ?? '',
     full_name: (user.user_metadata?.name as string | undefined) ?? fallbackName ?? 'User',
     role: (metadataRole ?? fallbackRole ?? 'patient') as UserRole,
+    mobile_number: metadataMobile ?? fallbackMobile ?? '',
   };
 
   const { error } = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' });
@@ -89,7 +100,13 @@ async function requireUser() {
 }
 
 export const authAPI = {
-  async signup(email: string, password: string, name: string, role: UserRole) {
+  async signup(
+    email: string,
+    password: string,
+    name: string,
+    role: UserRole,
+    mobile_number: string
+  ) {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -97,6 +114,7 @@ export const authAPI = {
         data: {
           name,
           role,
+          mobile_number,
         },
       },
     });
@@ -110,7 +128,7 @@ export const authAPI = {
     }
 
     if (data.user && data.session) {
-      await upsertOwnProfile(data.user, name, role);
+      await upsertOwnProfile(data.user, name, role, mobile_number);
     }
 
     return {
@@ -147,6 +165,25 @@ export const authAPI = {
     return {
       user: toAppUser(user, profile),
     };
+  },
+
+  async updateUser(updates: Partial<AppUser>) {
+    const user = await requireUser();
+    const { data, error } = await supabase
+      .from('profiles')
+      .update({
+        full_name: updates.name,
+        mobile_number: updates.mobile_number,
+      })
+      .eq('id', user.id)
+      .select('id, email, full_name, role, mobile_number')
+      .single();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+
+    return { user: toAppUser(user, data as ProfileRow) };
   },
 
   async signout() {

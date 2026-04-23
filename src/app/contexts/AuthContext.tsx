@@ -83,10 +83,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signup(email: string, password: string, name: string, role: User['role']): Promise<User> {
+  async function signup(
+    email: string,
+    password: string,
+    name: string,
+    role: User['role'],
+    mobile_number: string
+  ): Promise<User> {
     try {
-      await authAPI.signup(email, password, name, role);
-      
+      await authAPI.signup(email, password, name, role, mobile_number);
+
       // After signup, automatically sign in
       const signedInUser = await signin(email, password, false);
       
@@ -126,8 +132,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function updateUser(updates: Partial<User>) {
+    try {
+      const data = await authAPI.updateUser(updates);
+      setUser(data.user);
+      toast.success('Profile updated successfully!');
+      return data.user;
+    } catch (error: any) {
+      console.error('Update user error:', error);
+      toast.error(error.message || 'Failed to update profile');
+      throw error;
+    }
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, signin, signup, signout, refreshUser }}>
+    <AuthContext.Provider
+      value={{ user, loading, signin, signup, signout, refreshUser, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

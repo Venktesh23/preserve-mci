@@ -7,6 +7,7 @@ import { Button } from './ui/button';
 import { Checkbox } from './ui/checkbox';
 import { useAuth } from '../contexts/useAuth';
 import { dataAPI } from '../utils/api';
+import { formatPhoneNumber } from '../utils/phone';
 
 type UserRole = 'patient' | 'care_partner' | 'clinician' | null;
 
@@ -137,7 +138,7 @@ export default function RegistrationPage() {
     firstName: '',
     lastName: '',
     email: '',
-    phone: '',
+    mobile_number: '',
     password: '',
     confirmPassword: '',
     // Patient specific
@@ -189,10 +190,10 @@ export default function RegistrationPage() {
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    if (!formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required';
-    } else if (!/^\d{10,}$/.test(formData.phone.replace(/\D/g, ''))) {
-      newErrors.phone = 'Please enter a valid phone number';
+    if (!formData.mobile_number.trim()) {
+      newErrors.mobile_number = 'Mobile number is required';
+    } else if (!/^\d{10,}$/.test(formData.mobile_number.replace(/\D/g, ''))) {
+      newErrors.mobile_number = 'Please enter a valid mobile number';
     }
     if (!formData.password) {
       newErrors.password = 'Password is required';
@@ -246,13 +247,19 @@ export default function RegistrationPage() {
         const name = `${formData.firstName} ${formData.lastName}`;
         const role = selectedRole;
 
-        const createdUser = await signup(formData.email, formData.password, name, role);
+        const createdUser = await signup(
+          formData.email,
+          formData.password,
+          name,
+          role,
+          formData.mobile_number
+        );
 
         try {
           await dataAPI.save('registration_profile', {
             firstName: formData.firstName,
             lastName: formData.lastName,
-            phone: formData.phone,
+            mobile_number: formData.mobile_number,
             role,
             patient: {
               dateOfBirth: formData.dateOfBirth,
@@ -531,9 +538,9 @@ export default function RegistrationPage() {
                     id="emergencyContactPhone"
                     label="Emergency Contact Phone"
                     type="tel"
-                    placeholder="(555) 123-4567"
+                    placeholder="(551)362-9680"
                     value={formData.emergencyContactPhone}
-                    onChange={(value) => handleInputChange('emergencyContactPhone', value)}
+                    onChange={(value) => handleInputChange('emergencyContactPhone', formatPhoneNumber(value))}
                     error={errors.emergencyContactPhone}
                     required
                   />
