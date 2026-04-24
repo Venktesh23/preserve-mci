@@ -23,6 +23,12 @@ export default function PatientSleepLogs() {
   const { logs: sleepLogs, stats: sleepStats, getChartData } = useSleepLogs();
   const [viewMode, setViewMode] = useState<'chart' | 'list'>('chart');
 
+  const sortedLogs = useMemo(() => {
+    return [...sleepLogs].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+  }, [sleepLogs]);
+
   // Get chart data for last 30 days
   const sleepTrendData = useMemo(() => {
     return getChartData(30).map((item, index) => ({

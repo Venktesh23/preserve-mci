@@ -13,6 +13,7 @@ import {
   CheckCheck,
   User,
   Loader2,
+  ArrowLeft,
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -27,6 +28,7 @@ interface MessagesCenterProps {
   layoutComponent: React.ComponentType<{ children: React.ReactNode }>;
   viewMode?: 'messages' | 'notifications';
   pageTitle?: string;
+  hint?: string;
 }
 
 export default function MessagesCenter({
@@ -34,6 +36,7 @@ export default function MessagesCenter({
   layoutComponent: Layout,
   viewMode = 'messages',
   pageTitle,
+  hint,
 }: MessagesCenterProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -170,12 +173,22 @@ export default function MessagesCenter({
     return (
       <Layout>
         <div className="space-y-6">
+          {/* Back to Dashboard */}
+          <button
+            onClick={() => navigate(dashboardPath)}
+            className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white transition-colors"
+            aria-label="Back to Dashboard"
+          >
+            <ArrowLeft size={18} color="#7200CA" />
+            <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>Back to Dashboard</span>
+          </button>
+
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="mb-1" style={{ color: '#1f1f3d', fontSize: '22px', fontWeight: 700 }}>
+              <h1 className="text-[22px] font-[700] text-[#1A1A2E] mb-1">
                 {pageTitle || 'Notifications'}
               </h1>
-              <p className="text-lg text-gray-600">
+              <p className="text-[14px] text-[#6B7280] font-[400]">
                 {unreadCount > 0
                   ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
                   : 'All caught up!'}
@@ -258,28 +271,26 @@ export default function MessagesCenter({
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate(dashboardPath)}
-              className="p-2 hover:bg-gray-100 rounded-xl"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </Button>
-            <div>
-              <h1 className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
-                Messages
-              </h1>
-              <p className="text-lg text-gray-600">
-                {unreadCount > 0
-                  ? `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`
-                  : 'All caught up!'}
-              </p>
-            </div>
-          </div>
+        {/* Back to Dashboard */}
+        <button
+          onClick={() => navigate(dashboardPath)}
+          className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white transition-colors"
+          aria-label="Back to Dashboard"
+        >
+          <ArrowLeft size={18} color="#7200CA" />
+          <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>Back to Dashboard</span>
+        </button>
 
+        {/* Header */}
+        <div className="flex items-center justify-between flex-wrap gap-3">
+          <div>
+            <h1 className="text-[22px] font-[700] text-[#1A1A2E] mb-1">Messages</h1>
+            <p className="text-[14px] text-[#6B7280] font-[400]">
+              {unreadCount > 0
+                ? `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`
+                : 'All caught up!'}
+            </p>
+          </div>
           {unreadCount > 0 && (
             <div className="flex items-center space-x-2 px-4 py-2 bg-purple-100 text-purple-700 rounded-xl">
               <Mail className="w-5 h-5" />
@@ -287,6 +298,13 @@ export default function MessagesCenter({
             </div>
           )}
         </div>
+
+        {hint && (
+          <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-50 border border-purple-100">
+            <MessageSquare className="w-4 h-4 text-purple-500 flex-shrink-0" />
+            <p className="text-sm text-purple-700">{hint}</p>
+          </div>
+        )}
 
         {/* Messages Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

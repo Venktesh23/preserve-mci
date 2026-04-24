@@ -127,7 +127,7 @@ export const authAPI = {
       throw new Error('Unable to create account. Please try again.');
     }
 
-    if (data.user && data.session) {
+    if (data.user) {
       await upsertOwnProfile(data.user, name, role, mobile_number);
     }
 
@@ -151,6 +151,12 @@ export const authAPI = {
       await upsertOwnProfile(data.user);
       profile = await getProfile(data.user.id);
     }
+
+    // Always stamp last_active so clinicians see accurate activity times.
+    await supabase
+      .from('profiles')
+      .update({ last_active: new Date().toISOString() })
+      .eq('id', data.user.id);
 
     return {
       user: toAppUser(data.user, profile),

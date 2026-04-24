@@ -5,14 +5,13 @@
 
 // Storage keys - centralized for easy management
 export const STORAGE_KEYS = {
-  MODULE_PROGRESS: 'mii_module_progress',
-  SLEEP_LOGS: 'mii_sleep_logs',
-  USER_PREFERENCES: 'mii_user_preferences',
-  OVERALL_PROGRESS: 'mii_overall_progress',
-  PATIENT_CONNECTION: 'mii_patient_connection',
-  CARE_MESSAGES: 'mii_care_messages',
-  CLINICIAN_PATIENTS: 'mii_clinician_patients',
-  CLINICIAN_NOTES: 'mii_clinician_notes',
+  MODULE_PROGRESS: 'mii_module_progress_v2',
+  SLEEP_LOGS: 'mii_sleep_logs_v2',
+  USER_PREFERENCES: 'mii_user_preferences_v2',
+  OVERALL_PROGRESS: 'mii_overall_progress_v2',
+  PATIENT_CONNECTION: 'mii_patient_connection_v2',
+  CARE_MESSAGES: 'mii_care_messages_v2',
+  CLINICIAN_NOTES: 'mii_clinician_notes_v3',
 } as const;
 
 /**

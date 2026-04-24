@@ -27,14 +27,27 @@ export default function AuthPage() {
     }
   }, []);
 
+  const clearFieldError = (field: keyof typeof errors) => {
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Guard against double submission
+    if (isLoading) return;
+
     const newErrors: { email?: string; password?: string; role?: string } = {};
 
-    // Basic validation
-    if (!email) {
+    if (!email.trim()) {
       newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
+    } else if (!/\S+@\S+\.\S+/.test(email.trim())) {
       newErrors.email = 'Please enter a valid email address';
     }
 
@@ -43,63 +56,63 @@ export default function AuthPage() {
     }
 
     if (!selectedRole) {
-      newErrors.role = 'Please select a role';
+      newErrors.role = 'Please select your role to continue';
     }
 
     setErrors(newErrors);
+    if (Object.keys(newErrors).length > 0) return;
 
-    if (Object.keys(newErrors).length === 0) {
-      setIsLoading(true);
-      try {
-        setErrors({});
-        const signedInUser = await signin(email, password);
+    setIsLoading(true);
+    setErrors({});
 
-        if (signedInUser.role !== selectedRole) {
-          // Show role error immediately; clear session in background.
-          const roleLabelMap = {
-            patient: 'Patient',
-            care_partner: 'Caregiver/Care Partner',
-            clinician: 'Clinician',
-          } as const;
+    try {
+      const signedInUser = await signin(email.trim(), password);
 
-          setErrors({
-            role: `This account is registered as ${roleLabelMap[signedInUser.role]}. Please select that role.`,
-          });
-
-          await signout(false);
-          return;
-        }
-
-        if (rememberMe) {
-          localStorage.setItem('remembered_email', email);
-        } else {
-          localStorage.removeItem('remembered_email');
-        }
-
-        const dashboardMap = {
-          patient: '/patient/dashboard',
-          care_partner: '/care-partner/dashboard',
-          clinician: '/clinician/dashboard',
+      if (signedInUser.role !== selectedRole) {
+        const roleLabelMap = {
+          patient: 'Patient',
+          care_partner: 'Caregiver / Care Partner',
+          clinician: 'Clinician',
         } as const;
 
-        navigate(dashboardMap[signedInUser.role]);
-      } catch (error: any) {
-        const message = (error?.message || 'Sign in failed. Please try again.').trim();
+        setErrors({
+          role: `This account is registered as "${roleLabelMap[signedInUser.role]}". Please select that role and try again.`,
+        });
 
-        if (message.toLowerCase().includes('role')) {
-          setErrors({ role: message });
-        } else if (
-          message.toLowerCase().includes('password') ||
-          message.toLowerCase().includes('credentials') ||
-          message.toLowerCase().includes('login')
-        ) {
-          setErrors({ password: message });
-        } else {
-          setErrors({ email: message });
-        }
-      } finally {
-        setIsLoading(false);
+        // Sign out in background — do not await (prevents UI freeze on slow network)
+        signout(false).catch(() => {});
+        return;
       }
+
+      if (rememberMe) {
+        localStorage.setItem('remembered_email', email.trim());
+      } else {
+        localStorage.removeItem('remembered_email');
+      }
+
+      const dashboardMap = {
+        patient: '/patient/dashboard',
+        care_partner: '/caregiver',
+        clinician: '/clinician',
+      } as const;
+
+      navigate(dashboardMap[signedInUser.role]);
+    } catch (error: any) {
+      const message = (error?.message || 'Sign in failed. Please try again.').trim();
+
+      if (message.toLowerCase().includes('role')) {
+        setErrors({ role: message });
+      } else if (
+        message.toLowerCase().includes('password') ||
+        message.toLowerCase().includes('credentials') ||
+        message.toLowerCase().includes('login')
+      ) {
+        setErrors({ password: message });
+      } else {
+        setErrors({ email: message });
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -158,7 +171,7 @@ export default function AuthPage() {
                   type="email"
                   placeholder="your.email@example.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => { setEmail(e.target.value); clearFieldError('email'); }}
                   className={`h-14 px-4 rounded-xl border-2 text-base ${
                     errors.email ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
                   } focus:border-[#6D28D9] focus:bg-white transition-colors`}
@@ -183,7 +196,7 @@ export default function AuthPage() {
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Enter your password"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => { setPassword(e.target.value); clearFieldError('password'); }}
                     className={`h-14 px-4 pr-12 rounded-xl border-2 text-base ${
                       errors.password ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
                     } focus:border-[#6D28D9] focus:bg-white transition-colors`}
@@ -218,7 +231,7 @@ export default function AuthPage() {
                 <select
                   id="role"
                   value={selectedRole}
-                  onChange={(e) => setSelectedRole(e.target.value as 'patient' | 'care_partner' | 'clinician' | '')}
+                  onChange={(e) => { setSelectedRole(e.target.value as 'patient' | 'care_partner' | 'clinician' | ''); clearFieldError('role'); }}
                   className={`w-full h-14 px-4 rounded-xl border-2 text-base ${
                     errors.role ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'
                   } focus:border-[#6D28D9] focus:bg-white transition-colors`}

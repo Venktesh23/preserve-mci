@@ -1,144 +1,149 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import {
-  Activity,
-  Bell,
-  LogOut,
   Home,
-  Users,
-  BarChart3,
-  Settings,
+  MessageSquare,
   Menu,
   X,
+  LogOut,
+  Settings,
+  Users,
+  Moon,
 } from 'lucide-react';
-import { Button } from './ui/button';
 import { useAuth } from '../contexts/useAuth';
 import ClinicianOverview from './clinician/ClinicianOverview';
+import ClinicianPatients from './clinician/ClinicianPatients';
+import ClinicianSleepData from './clinician/ClinicianSleepData';
 import PatientDetail from './clinician/PatientDetail';
-import ClinicianAnalytics from './clinician/ClinicianAnalytics';
+import MessagesCenter from './MessagesCenter';
+import ClinicianSettingsPage from './clinician/SettingsPage';
+import { useClinicianPatients } from '../hooks/useClinicianPatients';
+import { useMessaging } from '../hooks/useMessaging';
+
+const ROUTES = {
+  dashboard:  '/clinician',
+  patients:   '/clinician/patients',
+  sleepData:  '/clinician/sleep-data',
+  messages:   '/clinician/messages',
+  settings:   '/clinician/settings',
+} as const;
 
 export default function ClinicianDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
   const { signout } = useAuth();
+  const { unreadCount } = useMessaging();
+  const { patients, loading } = useClinicianPatients();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
 
   const handleSignOut = async () => {
     await signout();
     navigate('/');
   };
 
-  // Determine which view to show based on URL
   const currentPath = location.pathname;
-  const isPatientDetail = currentPath.includes('/clinician/patient/');
-  const isAnalytics = currentPath.includes('/clinician/analytics');
+  const pathSegments = currentPath.split('/').filter(Boolean);
+  const currentView = pathSegments[1] || 'dashboard';
+  const patientIdFromPath = currentView === 'patients' && pathSegments[2] ? pathSegments[2] : null;
 
-  const navigationItems = [
-    {
-      label: 'Dashboard',
-      icon: Home,
-      path: '/clinician/dashboard',
-      active: !isPatientDetail && !isAnalytics,
-    },
-    {
-      label: 'Analytics',
-      icon: BarChart3,
-      path: '/clinician/analytics',
-      active: isAnalytics,
-    },
+  const navItems = [
+    { label: 'Dashboard',   icon: Home,          path: ROUTES.dashboard, view: 'dashboard' },
+    { label: 'My Patients', icon: Users,         path: ROUTES.patients,  view: 'patients' },
+    { label: 'Sleep Data',  icon: Moon,          path: ROUTES.sleepData, view: 'sleep-data' },
+    { label: 'Messages',    icon: MessageSquare, path: ROUTES.messages,  view: 'messages', badge: unreadCount },
   ];
 
+  const PlainLayout = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
   const renderContent = () => {
-    if (isPatientDetail) {
-      return <PatientDetail />;
+    if (currentView === 'patients' && patientIdFromPath) {
+      return loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <PatientDetail />
+      );
     }
-    if (isAnalytics) {
-      return <ClinicianAnalytics />;
+    switch (currentView) {
+      case 'patients':    return <ClinicianPatients />;
+      case 'sleep-data':  return <ClinicianSleepData />;
+      case 'messages':
+        return (
+          <MessagesCenter
+            dashboardPath="/clinician"
+            layoutComponent={PlainLayout}
+            hint="To start a conversation, go to the patient profile."
+          />
+        );
+      case 'settings':  return <ClinicianSettingsPage />;
+      default:          return <ClinicianOverview />;
     }
-    return <ClinicianOverview />;
+  };
+
+  const showSidebarLabels = sidebarOpen || sidebarHovered;
+  const token = {
+    white: '#FFFFFF',
+    purple100: '#F3E9FB',
+    sidebarInactive: '#888780',
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation Bar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            {/* Logo and Title */}
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
-                aria-label="Toggle menu"
-              >
-                {sidebarOpen ? (
-                  <X className="w-6 h-6 text-gray-600" />
-                ) : (
-                  <Menu className="w-6 h-6 text-gray-600" />
-                )}
-              </button>
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-white" />
-                </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-xl" style={{ color: '#1f1f3d' }}>
-                    Sleep Intervention
-                  </h1>
-                  <p className="text-sm text-gray-500">Clinician Portal</p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: '#F9FAFB' }}>
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed top-4 left-4 z-40 lg:hidden p-2.5 rounded-lg transition-all duration-200 hover:bg-[#F3E8FF] hover:shadow-sm active:scale-95"
+        style={{ backgroundColor: token.white, border: `0.5px solid ${token.purple100}` }}
+        aria-label="Toggle menu"
+      >
+        {sidebarOpen ? (
+          <X size={18} strokeWidth={1.5} color="#6B7280" />
+        ) : (
+          <Menu size={18} strokeWidth={1.5} color="#6B7280" />
+        )}
+      </button>
 
-            {/* Right Side Actions */}
-            <div className="flex items-center space-x-4">
-              <button className="relative p-2 rounded-xl hover:bg-gray-100 transition-colors">
-                <Bell className="w-6 h-6 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-purple-500 rounded-full"></span>
-              </button>
-              <div className="hidden md:flex items-center space-x-3 pl-4 border-l border-gray-200">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center">
-                  <span className="text-white text-lg">D</span>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: '#1f1f3d' }}>
-                    Dr. Chen
-                  </p>
-                  <p className="text-xs text-gray-500">Clinician</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="flex">
-        {/* Sidebar Navigation */}
+      <div className="flex min-h-screen">
         <aside
-          className={`fixed lg:sticky top-20 left-0 h-[calc(100vh-5rem)] bg-white border-r border-gray-200 transition-all duration-300 z-30 ${
-            sidebarOpen ? 'w-64' : 'w-0 lg:w-20'
-          } overflow-hidden`}
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
+          className={`group fixed top-0 left-0 h-screen flex flex-col transition-all duration-300 z-30 w-72 ${
+            sidebarHovered ? 'lg:w-72' : 'lg:w-24'
+          } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+          style={{ backgroundColor: token.white, borderRight: `0.5px solid ${token.purple100}` }}
         >
-          <nav className="p-4 space-y-2">
-            {navigationItems.map((item) => {
+          <div className={`px-4 pb-2 ${showSidebarLabels ? 'block' : 'hidden'}`}></div>
+          <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
+            {navItems.map((item) => {
               const Icon = item.icon;
+              const isActive = currentView === item.view;
               return (
                 <button
                   key={item.label}
-                  onClick={() => {
-                    navigate(item.path);
-                    setSidebarOpen(false);
-                  }}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
-                    item.active
-                      ? 'bg-purple-50 text-purple-700'
-                      : 'text-gray-600 hover:bg-gray-50'
+                  onClick={() => { navigate(item.path); setSidebarOpen(false); }}
+                  title={item.label}
+                  className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${
+                    showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'
                   }`}
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 400,
+                    color: isActive ? '#6D28D9' : token.sidebarInactive,
+                    borderLeft: isActive ? '2px solid #6D28D9' : '2px solid transparent',
+                  }}
                 >
-                  <Icon className="w-6 h-6 flex-shrink-0" />
+                  <div className="relative flex-shrink-0">
+                    <Icon size={18} strokeWidth={1.5} color={isActive ? '#6D28D9' : '#6B7280'} />
+                    {item.badge != null && item.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-[#6D28D9] rounded-full flex items-center justify-center text-[9px] text-white font-bold">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </div>
                   <span
-                    className={`text-base whitespace-nowrap ${
-                      sidebarOpen ? 'opacity-100' : 'lg:opacity-0'
+                    className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                      showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
                     }`}
                   >
                     {item.label}
@@ -148,26 +153,40 @@ export default function ClinicianDashboard() {
             })}
           </nav>
 
-          {/* Bottom Actions */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 space-y-2">
-            <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-all">
-              <Settings className="w-6 h-6 flex-shrink-0" />
+          <div className="mt-auto p-4 space-y-2 shrink-0" style={{ borderTop: `0.5px solid ${token.purple100}` }}>
+            <button
+              onClick={() => { navigate(ROUTES.settings); setSidebarOpen(false); }}
+              title="Settings"
+              className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${
+                showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'
+              }`}
+              style={{
+                fontSize: '15px',
+                color: currentView === 'settings' ? '#6D28D9' : token.sidebarInactive,
+                borderLeft: currentView === 'settings' ? '2px solid #6D28D9' : '2px solid transparent',
+              }}
+            >
+              <Settings size={18} strokeWidth={1.5} color={currentView === 'settings' ? '#6D28D9' : '#6B7280'} className="flex-shrink-0" />
               <span
-                className={`text-base whitespace-nowrap ${
-                  sidebarOpen ? 'opacity-100' : 'lg:opacity-0'
+                className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                  showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
                 }`}
               >
                 Settings
               </span>
             </button>
             <button
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-all"
               onClick={handleSignOut}
+              title="Sign Out"
+              className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${
+                showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'
+              }`}
+              style={{ fontSize: '15px', color: token.sidebarInactive }}
             >
-              <LogOut className="w-6 h-6 flex-shrink-0" />
+              <LogOut size={18} strokeWidth={1.5} color="#6B7280" className="flex-shrink-0" />
               <span
-                className={`text-base whitespace-nowrap ${
-                  sidebarOpen ? 'opacity-100' : 'lg:opacity-0'
+                className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                  showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
                 }`}
               >
                 Sign Out
@@ -176,16 +195,14 @@ export default function ClinicianDashboard() {
           </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 lg:pl-24 p-6 lg:p-8 max-w-7xl mx-auto w-full">
           {renderContent()}
         </main>
       </div>
 
-      {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          className="fixed inset-0 bg-black/25 z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

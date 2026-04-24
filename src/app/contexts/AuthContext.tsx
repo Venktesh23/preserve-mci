@@ -90,18 +90,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     role: User['role'],
     mobile_number: string
   ): Promise<User> {
+    // Phase 1: create the Supabase account + profile
+    let signupResult: Awaited<ReturnType<typeof authAPI.signup>>;
     try {
-      await authAPI.signup(email, password, name, role, mobile_number);
-
-      // After signup, automatically sign in
-      const signedInUser = await signin(email, password, false);
-      
-      toast.success('Account created successfully!');
-      return signedInUser;
+      signupResult = await authAPI.signup(email, password, name, role, mobile_number);
     } catch (error: any) {
       console.error('Signup error:', error);
       toast.error(error.message || 'Failed to create account');
       throw error;
+    }
+
+    // Phase 2: if Supabase returned a session immediately (email confirmation OFF),
+    // use the user from the signup result directly instead of making a second network call.
+    if (signupResult.session && signupResult.user) {
+      setUser(signupResult.user);
+      toast.success('Account created successfully!');
+      return signupResult.user;
+    }
+
+    // Phase 3: no immediate session — email confirmation is likely ON.
+    // Try to sign in; if that also fails surface a clear, friendly message.
+    try {
+      const signedInUser = await signin(email, password, false);
+      toast.success('Account created successfully!');
+      return signedInUser;
+    } catch (signinError: any) {
+      console.error('Auto sign-in after signup failed:', signinError);
+      const msg: string = signinError?.message ?? '';
+      if (msg.toLowerCase().includes('confirm') || msg.toLowerCase().includes('verification')) {
+        toast.success('Account created! Please confirm your email before signing in.');
+      } else {
+        toast.success('Account created! Please sign in.');
+      }
+      // Re-throw so the registration page knows not to navigate
+      throw signinError;
     }
   }
 

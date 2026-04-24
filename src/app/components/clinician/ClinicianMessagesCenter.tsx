@@ -1,11 +1,14 @@
 import MessagesCenter from '../MessagesCenter';
-import ClinicianLayout from './ClinicianLayout';
+
+function PlainLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
 
 export default function ClinicianMessagesCenter() {
   return (
     <MessagesCenter
-      dashboardPath="/clinician/dashboard"
-      layoutComponent={ClinicianLayout}
+      dashboardPath="/clinician"
+      layoutComponent={PlainLayout}
     />
   );
 }

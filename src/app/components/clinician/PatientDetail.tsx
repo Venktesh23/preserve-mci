@@ -1,361 +1,491 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import {
-  ChevronLeft,
-  Moon,
-  TrendingUp,
-  BookOpen,
-  Calendar,
+  ArrowLeft,
   Clock,
-  AlertCircle,
-  User,
-  FileText,
-  Activity,
-  Award,
+  AlertTriangle,
   Send,
+  FileText,
+  Calendar,
+  User,
+  Inbox,
+  Plus,
+  Check,
+  CheckCheck,
+  ShieldCheck,
+  Moon,
+  Star,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Textarea } from '../ui/textarea';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceLine,
+} from 'recharts';
 import { useClinicianPatients } from '../../hooks/useClinicianPatients';
-import { useSleepLogs } from '../../hooks/useSleepLogs';
-import { useAllModulesProgress } from '../../hooks/useModuleProgress';
+import { useMessaging } from '../../hooks/useMessaging';
+import { useAuth } from '../../contexts/useAuth';
+import { supabase } from '../../utils/supabaseClient';
 import { toast } from 'sonner';
 
+/* ──────────────────────── Design tokens ──────────────────────── */
+const token = {
+  white: '#FFFFFF',
+  purple100: '#F3E9FB',
+  purple200: '#E9D5FF',
+  purple700: '#6D28D9',
+  gray50: '#F9FAFB',
+  gray100: '#F3F4F6',
+  gray400: '#9CA3AF',
+  gray600: '#6B7280',
+  text: '#1A1A2E',
+};
+
+const cardStyle: React.CSSProperties = {
+  backgroundColor: token.white,
+  border: `0.5px solid ${token.purple100}`,
+  borderRadius: '14px',
+  padding: '18px 20px',
+};
+
+const riskConfig = {
+  high:   { label: 'High',   bg: '#FEF2F2', color: '#B91C1C', border: '#FECACA' },
+  medium: { label: 'Medium', bg: '#FFFBEB', color: '#B45309', border: '#FDE68A' },
+  low:    { label: 'Low',    bg: '#F0FDF4', color: '#166534', border: '#BBF7D0' },
+};
+
+type SleepLogEntry = { date: string; hoursSlept: number; sleepQuality: number };
+
+/* ──────────────────────── Component ──────────────────────── */
 export default function PatientDetail() {
   const { patientId } = useParams<{ patientId: string }>();
   const navigate = useNavigate();
-  const { getPatientById, addNote, getPatientNotes } = useClinicianPatients();
-  const { logs: sleepLogs, stats: sleepStats, getChartData } = useSleepLogs();
-  const moduleProgressStats = useAllModulesProgress();
+  const { getPatientById, addNote, getPatientNotes, updatePatient } = useClinicianPatients();
+  const { sendMessage } = useMessaging();
+  const { user } = useAuth();
 
   const [noteText, setNoteText] = useState('');
   const [noteType, setNoteType] = useState<'general' | 'concern' | 'progress' | 'follow-up'>('general');
 
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
+  const [messageText, setMessageText] = useState('');
+  const [isRecModalOpen, setIsRecModalOpen] = useState(false);
+  const [recText, setRecText] = useState('');
+
+  /* ── Sleep logs — fetched from Supabase ── */
+  const [sleepLogs, setSleepLogs] = useState<SleepLogEntry[]>([]);
+  useEffect(() => {
+    if (!patientId) return;
+    supabase
+      .from('sleep_logs')
+      .select('date, hours_slept, sleep_quality')
+      .eq('user_id', patientId)
+      .order('date', { ascending: true })
+      .limit(30)
+      .then(({ data }) => {
+        setSleepLogs(
+          (data ?? []).map((r) => ({
+            date: r.date as string,
+            hoursSlept: r.hours_slept as number,
+            sleepQuality: r.sleep_quality as number,
+          }))
+        );
+      });
+  }, [patientId]);
+
   const patient = patientId ? getPatientById(patientId) : null;
   const patientNotes = patientId ? getPatientNotes(patientId) : [];
+  const recommendations = patientNotes.filter((n) => n.type === 'recommendation');
+  const regularNotes = patientNotes.filter((n) => n.type !== 'recommendation');
 
-  // Get chart data for last 30 days
-  const sleepTrendData = useMemo(() => {
-    return getChartData(30).map((item, index) => ({
-      ...item,
-      uniqueId: `${item.fullDate}-${index}`,
-    }));
-  }, [getChartData]);
-
-  // Calculate engagement metrics
-  const lastLogDate = sleepLogs.length > 0 ? new Date(sleepLogs[0].date) : null;
-  const daysSinceLastLog = lastLogDate
-    ? Math.floor((Date.now() - lastLogDate.getTime()) / (1000 * 60 * 60 * 24))
-    : null;
-
-  const handleAddNote = () => {
-    if (!noteText.trim() || !patientId) {
-      toast.error('Please enter a note');
-      return;
-    }
-
-    addNote({
-      patientId,
-      clinicianId: 'clinician_1', // In real app, would be current user
-      note: noteText,
-      type: noteType,
+  /* ── Sleep analytics ── */
+  const sleepAvg = useMemo(
+    () => sleepLogs.length > 0 ? (sleepLogs.reduce((s: number, l: SleepLogEntry) => s + l.hoursSlept, 0) / sleepLogs.length).toFixed(1) : null,
+    [sleepLogs]
+  );
+  const qualityAvg = useMemo(
+    () => sleepLogs.length > 0 ? (sleepLogs.reduce((s: number, l: SleepLogEntry) => s + l.sleepQuality, 0) / sleepLogs.length).toFixed(1) : null,
+    [sleepLogs]
+  );
+  const sleepChartData = useMemo(
+    () => sleepLogs.slice(-14).map((log: SleepLogEntry) => ({
+      shortDate: new Date(log.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      hours: log.hoursSlept,
+    })),
+    [sleepLogs]
+  );
+  const weekdayAvgSleep = useMemo(() => {
+    const wd = sleepLogs.filter((l: SleepLogEntry) => { const d = new Date(l.date).getDay(); return d >= 1 && d <= 5; });
+    return wd.length > 0 ? (wd.reduce((s: number, l: SleepLogEntry) => s + l.hoursSlept, 0) / wd.length).toFixed(1) : null;
+  }, [sleepLogs]);
+  const weekendAvgSleep = useMemo(() => {
+    const we = sleepLogs.filter((l: SleepLogEntry) => { const d = new Date(l.date).getDay(); return d === 0 || d === 6; });
+    return we.length > 0 ? (we.reduce((s: number, l: SleepLogEntry) => s + l.hoursSlept, 0) / we.length).toFixed(1) : null;
+  }, [sleepLogs]);
+  const sleepConsistency = useMemo(() => {
+    if (sleepLogs.length < 3) return null;
+    const recent = sleepLogs.slice(-14).map((l: SleepLogEntry) => l.hoursSlept);
+    const mean = recent.reduce((s: number, h: number) => s + h, 0) / recent.length;
+    const variance = recent.reduce((s: number, h: number) => s + (h - mean) ** 2, 0) / recent.length;
+    return Math.max(0, Math.round(100 - Math.sqrt(variance) * 20));
+  }, [sleepLogs]);
+  const sleepTrend = useMemo(() => {
+    if (sleepLogs.length < 7) return 'stable' as const;
+    const mid = Math.floor(sleepLogs.length / 2);
+    const firstAvg = sleepLogs.slice(0, mid).reduce((s: number, l: SleepLogEntry) => s + l.hoursSlept, 0) / mid;
+    const secondAvg = sleepLogs.slice(mid).reduce((s: number, l: SleepLogEntry) => s + l.hoursSlept, 0) / (sleepLogs.length - mid);
+    const diff = secondAvg - firstAvg;
+    return diff > 0.3 ? 'improving' as const : diff < -0.3 ? 'declining' as const : 'stable' as const;
+  }, [sleepLogs]);
+  const sleepWeeklyBreakdown = useMemo(() => {
+    const now = new Date();
+    return [3, 2, 1, 0].map((w) => {
+      const start = new Date(now); start.setDate(start.getDate() - (w + 1) * 7);
+      const end = new Date(now); end.setDate(end.getDate() - w * 7);
+      const wl = sleepLogs.filter((l: SleepLogEntry) => { const d = new Date(l.date); return d >= start && d < end; });
+      return {
+        label: w === 0 ? 'This week' : w === 1 ? 'Last week' : `${w + 1} weeks ago`,
+        logs: wl.length,
+        avgHours: wl.length > 0 ? +(wl.reduce((s: number, l: SleepLogEntry) => s + l.hoursSlept, 0) / wl.length).toFixed(1) : 0,
+        avgQuality: wl.length > 0 ? +(wl.reduce((s: number, l: SleepLogEntry) => s + l.sleepQuality, 0) / wl.length).toFixed(1) : 0,
+      };
     });
+  }, [sleepLogs]);
 
-    toast.success('Note added successfully');
-    setNoteText('');
-  };
-
-  // Suppress recharts warnings
-  useEffect(() => {
-    const originalError = console.error;
-    console.error = (...args) => {
-      if (
-        typeof args[0] === 'string' &&
-        (args[0].includes('Encountered two children with the same key') ||
-         args[0].includes('width(0) and height(0)'))
-      ) {
-        return;
-      }
-      originalError.apply(console, args);
-    };
-
-    return () => {
-      console.error = originalError;
-    };
-  }, []);
-
+  /* ── Not found ── */
   if (!patient) {
     return (
-      <div className="flex flex-col items-center justify-center py-16">
-        <AlertCircle className="w-16 h-16 text-gray-400 mb-4" />
-        <h2 className="text-2xl mb-2" style={{ color: '#1f1f3d' }}>
-          Patient Not Found
-        </h2>
-        <p className="text-gray-600 mb-6">
-          The requested patient could not be found
-        </p>
-        <Button onClick={() => navigate('/clinician/dashboard')}>
-          Back to Dashboard
-        </Button>
+      <div className="space-y-6">
+        <button onClick={() => navigate('/clinician/patients')} className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white transition-colors" aria-label="Back to Patients">
+          <ArrowLeft size={18} color="#7200CA" />
+          <span style={{ fontSize: '14px', fontWeight: 500, color: token.gray600 }}>Back to Patients</span>
+        </button>
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <div className="w-14 h-14 rounded-full flex items-center justify-center mb-3" style={{ backgroundColor: token.gray100 }}>
+            <User size={24} strokeWidth={1.5} color={token.gray400} />
+          </div>
+          <h2 className="text-[18px] font-[600] mb-1" style={{ color: token.text }}>Patient Not Found</h2>
+          <p className="text-[13px] mb-4" style={{ color: token.gray600 }}>The requested patient could not be found.</p>
+          <button onClick={() => navigate('/clinician/patients')} className="px-4 py-2 rounded-lg text-[13px] font-[500] transition-all" style={{ backgroundColor: token.purple700, color: token.white }}>
+            View All Patients
+          </button>
+        </div>
       </div>
     );
   }
 
-  const patientStats = [
+  const risk = riskConfig[patient.riskLevel];
+
+  /* ── Real data from patient record ── */
+  const daysSinceLastActive = Math.floor((Date.now() - new Date(patient.lastActive).getTime()) / 86400000);
+  const daysEnrolled = Math.floor((Date.now() - new Date(patient.dateEnrolled).getTime()) / 86400000);
+  const lastActiveLabel = daysSinceLastActive === 0 ? 'Today' : daysSinceLastActive === 1 ? 'Yesterday' : `${daysSinceLastActive} days ago`;
+
+  /* ── Stat cards (all from real patient record) ── */
+  const statCards = [
     {
-      label: 'Sleep Logs',
-      value: sleepStats.totalLogs,
-      icon: Moon,
-      color: 'purple',
-      subtext: `${sleepStats.currentStreak} day streak`,
-    },
-    {
-      label: 'Avg Sleep',
-      value: sleepStats.averageHours > 0 ? `${sleepStats.averageHours} hrs` : 'No data',
+      label: 'Last Active',
+      value: daysSinceLastActive === 0 ? 'Today' : daysSinceLastActive === 1 ? '1 day ago' : `${daysSinceLastActive}d ago`,
+      sub: daysSinceLastActive <= 3 ? 'Engaging well' : 'Follow-up recommended',
       icon: Clock,
-      color: 'teal',
-      subtext: sleepStats.averageHours >= 7 ? 'Good range' : 'Below target',
     },
     {
-      label: 'Sleep Quality',
-      value: sleepStats.averageQuality > 0 ? `${Math.round(sleepStats.averageQuality * 20)}%` : 'No data',
-      icon: TrendingUp,
-      color: 'purple',
-      subtext: sleepStats.averageQuality >= 4 ? 'Excellent' : 'Needs improvement',
+      label: 'Days Enrolled',
+      value: String(daysEnrolled),
+      sub: 'Days in program',
+      icon: Calendar,
     },
     {
-      label: 'Module Progress',
-      value: `${moduleProgressStats.completedModules}/${moduleProgressStats.totalModules}`,
-      icon: BookOpen,
-      color: 'teal',
-      subtext: `${moduleProgressStats.overallProgress}% complete`,
+      label: 'Clinical Notes',
+      value: String(regularNotes.length),
+      sub: regularNotes.length > 0 ? 'Notes recorded' : 'No notes yet',
+      icon: FileText,
+    },
+    {
+      label: 'Recommendations',
+      value: String(recommendations.length),
+      sub: `${recommendations.filter((r) => r.read).length} acknowledged`,
+      icon: ShieldCheck,
     },
   ];
 
-  const getRiskBadgeColor = (risk: string) => {
-    switch (risk) {
-      case 'high':
-        return 'bg-red-100 text-red-700';
-      case 'medium':
-        return 'bg-amber-100 text-amber-700';
-      default:
-        return 'bg-teal-100 text-teal-700';
+  /* ── Patient info fields ── */
+  const infoFields = [
+    { label: 'Patient ID',   value: patient.id },
+    { label: 'Age',          value: patient.age ? `${patient.age} years old` : 'Not specified' },
+    { label: 'Email',        value: patient.email },
+    { label: 'Enrolled',     value: new Date(patient.dateEnrolled).toLocaleDateString() },
+    { label: 'Last Active',  value: lastActiveLabel },
+    { label: 'Care Partner', value: patient.carePartnerName || 'None assigned' },
+  ];
+
+  const noteTypeConfig: Record<string, { bg: string; color: string }> = {
+    concern:    { bg: '#FEF2F2', color: '#B91C1C' },
+    'follow-up': { bg: '#FFFBEB', color: '#B45309' },
+    progress:   { bg: '#F0FDF4', color: '#166534' },
+    general:    { bg: token.gray100, color: token.gray600 },
+  };
+
+  const handleAddNote = async () => {
+    if (!noteText.trim() || !patientId) { toast.error('Please enter a note'); return; }
+    const saved = await addNote({ patientId, clinicianId: user?.id ?? '', note: noteText, type: noteType });
+    if (!saved) { toast.error('Failed to save note'); return; }
+    try {
+      await sendMessage(patient.id, `Clinical Note (${noteType}): ${noteText.trim()}`);
+    } catch {
+      // notification failure is non-critical
     }
+    toast.success('Note added and patient notified');
+    setNoteText('');
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <Button
-            variant="ghost"
-            onClick={() => navigate('/clinician/dashboard')}
-            className="p-2 hover:bg-gray-100 rounded-xl"
+    <div className="space-y-6">
+      {/* Back to Dashboard */}
+      <button
+        onClick={() => navigate('/clinician/patients')}
+        className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white transition-colors"
+        aria-label="Back to Patients"
+      >
+        <ArrowLeft size={18} color="#7200CA" />
+        <span style={{ fontSize: '14px', fontWeight: 500, color: token.gray600 }}>Back to Patients</span>
+      </button>
+
+      {/* ── Header row ── */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white text-[16px] font-[600] flex-shrink-0">
+            {patient.name.charAt(0)}
+          </div>
+          <div>
+            <h1 className="text-[22px] font-[700]" style={{ color: token.text }}>{patient.name}</h1>
+            <p className="text-[14px] font-[400]" style={{ color: token.gray600 }}>Patient Details & Progress Monitoring</p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsMessageModalOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-[500] transition-colors"
+            style={{ backgroundColor: token.purple100, color: token.purple700 }}
           >
-            <ChevronLeft className="w-6 h-6" />
-          </Button>
-          <div>
-            <h1 className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
-              {patient.name}
-            </h1>
-            <p className="text-lg text-gray-600">
-              Patient Details & Progress Monitoring
-            </p>
-          </div>
-        </div>
+            <Send size={14} />
+            Message
+          </button>
 
-        <span
-          className={`px-4 py-2 rounded-full text-sm ${getRiskBadgeColor(
-            patient.riskLevel
-          )}`}
-        >
-          {patient.riskLevel.toUpperCase()} RISK
-        </span>
-      </div>
-
-      {/* Patient Info Card */}
-      <div className="bg-gradient-to-br from-purple-600 to-purple-800 rounded-3xl shadow-xl p-8 text-white">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <p className="text-sm text-purple-200 mb-1">Patient ID</p>
-            <p className="text-lg">{patient.id}</p>
-          </div>
-          <div>
-            <p className="text-sm text-purple-200 mb-1">Age</p>
-            <p className="text-lg">{patient.age} years old</p>
-          </div>
-          <div>
-            <p className="text-sm text-purple-200 mb-1">Email</p>
-            <p className="text-lg">{patient.email}</p>
-          </div>
-          <div>
-            <p className="text-sm text-purple-200 mb-1">Enrolled</p>
-            <p className="text-lg">
-              {new Date(patient.dateEnrolled).toLocaleDateString()}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-purple-200 mb-1">Last Active</p>
-            <p className="text-lg">
-              {daysSinceLastLog !== null
-                ? `${daysSinceLastLog} day${daysSinceLastLog !== 1 ? 's' : ''} ago`
-                : 'Today'}
-            </p>
-          </div>
-          <div>
-            <p className="text-sm text-purple-200 mb-1">Care Partner</p>
-            <p className="text-lg">{patient.carePartnerName || 'None assigned'}</p>
-          </div>
+          <select
+            value={patient.riskLevel}
+            onChange={(e) => { if (patientId) updatePatient(patientId, { riskLevel: e.target.value as 'low' | 'medium' | 'high' }); }}
+            className="text-[12px] font-[500] px-3 py-1.5 rounded-full cursor-pointer outline-none"
+            style={{ backgroundColor: risk.bg, color: risk.color, border: `0.5px solid ${risk.border}`, minWidth: '90px' }}
+          >
+            <option value="low">Low Risk</option>
+            <option value="medium">Medium Risk</option>
+            <option value="high">High Risk</option>
+          </select>
         </div>
       </div>
 
-      {/* Attention Alert */}
-      {daysSinceLastLog !== null && daysSinceLastLog > 3 && (
-        <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-6">
-          <div className="flex items-start space-x-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
-              <AlertCircle className="w-6 h-6 text-amber-600" />
+      {/* ── Patient Info Grid ── */}
+      <div style={cardStyle}>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ backgroundColor: token.gray100 }}>
+            <User size={16} strokeWidth={1.5} color={token.gray600} />
+          </div>
+          <h2 className="text-[16px] font-[600]" style={{ color: token.text }}>Patient Information</h2>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          {infoFields.map((f) => (
+            <div key={f.label}>
+              <p className="text-[11px] font-[500] mb-0.5" style={{ color: token.gray400, letterSpacing: '0.03em' }}>{f.label}</p>
+              <p className="text-[14px] font-[500]" style={{ color: token.text }}>{f.value}</p>
             </div>
-            <div className="flex-1">
-              <h3 className="text-xl mb-2" style={{ color: '#1f1f3d' }}>
-                Patient Requires Follow-up
-              </h3>
-              <p className="text-base text-gray-700">
-                {patient.name} hasn't logged sleep in {daysSinceLastLog} days.
-                Consider reaching out to assess engagement and address any barriers.
+          ))}
+        </div>
+      </div>
+
+      {/* ── Attention Alert ── */}
+      {daysSinceLastActive > 3 && (
+        <div style={{ ...cardStyle, backgroundColor: '#FFFBEB', border: '0.5px solid #FDE68A' }}>
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-[8px] flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#FEF3C7' }}>
+              <AlertTriangle size={16} strokeWidth={1.5} color="#B45309" />
+            </div>
+            <div>
+              <p className="text-[14px] font-[600] mb-0.5" style={{ color: '#92400E' }}>Patient Requires Follow-up</p>
+              <p className="text-[13px]" style={{ color: '#B45309' }}>
+                {patient.name} hasn't been active for {daysSinceLastActive} days. Consider reaching out to assess engagement.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {patientStats.map((stat, index) => {
-          const Icon = stat.icon;
+      {/* ── Stat Cards ── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {statCards.map((card) => {
+          const Icon = card.icon;
           return (
-            <div
-              key={index}
-              className="bg-white rounded-2xl shadow-md border border-gray-100 p-6"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div
-                  className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                    stat.color === 'purple'
-                      ? 'bg-gradient-to-br from-purple-100 to-purple-200'
-                      : 'bg-gradient-to-br from-teal-100 to-teal-200'
-                  }`}
-                >
-                  <Icon
-                    className={`w-6 h-6 ${
-                      stat.color === 'purple' ? 'text-purple-700' : 'text-teal-700'
-                    }`}
-                  />
-                </div>
+            <div key={card.label} style={cardStyle} className="flex flex-col justify-between min-h-[110px]">
+              <div className="w-9 h-9 rounded-[10px] flex items-center justify-center mb-3" style={{ backgroundColor: token.gray100 }}>
+                <Icon size={17} strokeWidth={1.5} color={token.gray600} />
               </div>
-              <p className="text-sm text-gray-600 mb-1">{stat.label}</p>
-              <p className="text-3xl mb-1" style={{ color: '#1f1f3d' }}>
-                {stat.value}
-              </p>
-              <p className="text-sm text-gray-500">{stat.subtext}</p>
+              <div>
+                <p className="text-[13px] mb-0.5" style={{ color: token.gray600 }}>{card.label}</p>
+                <p className="text-[22px] font-[500] leading-none mb-1" style={{ color: token.text }}>
+                  {card.value}
+                </p>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>{card.sub}</p>
+              </div>
             </div>
           );
         })}
       </div>
 
-      {/* Sleep Trend Chart */}
-      <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-        <div className="mb-6">
-          <h2 className="text-2xl mb-1" style={{ color: '#1f1f3d' }}>
-            Sleep Trend Analysis
-          </h2>
-          <p className="text-base text-gray-600">Last 30 days</p>
-        </div>
-
-        {sleepTrendData.some((d) => d.hasData) ? (
-          <div className="w-full" style={{ height: '320px' }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={sleepTrendData}
-                margin={{ top: 5, right: 5, left: -20, bottom: 5 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
-                <XAxis
-                  dataKey="date"
-                  stroke="#6b7280"
-                  style={{ fontSize: '14px' }}
-                  tick={{ fill: '#6b7280' }}
-                  interval="preserveStartEnd"
-                />
-                <YAxis
-                  stroke="#6b7280"
-                  style={{ fontSize: '14px' }}
-                  tick={{ fill: '#6b7280' }}
-                  domain={[0, 10]}
-                  ticks={[0, 2, 4, 6, 8, 10]}
-                  label={{
-                    value: 'Hours',
-                    angle: -90,
-                    position: 'insideLeft',
-                    style: { fill: '#6b7280', fontSize: '14px' },
-                  }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: '12px',
-                    padding: '12px',
-                  }}
-                  labelStyle={{ color: '#1f1f3d', fontWeight: 500 }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="hours"
-                  stroke="#8b5cf6"
-                  strokeWidth={3}
-                  dot={{ fill: '#8b5cf6', r: 5 }}
-                  activeDot={{ r: 7 }}
-                  name="Sleep Hours"
-                  isAnimationActive={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+      {/* ── Patient Sleep Analytics ── */}
+      <div style={cardStyle}>
+        <div className="flex items-center gap-2 mb-1">
+          <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ backgroundColor: token.gray100 }}>
+            <Moon size={16} strokeWidth={1.5} color={token.gray600} />
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-20 h-20 rounded-2xl bg-purple-50 flex items-center justify-center mb-4">
-              <Moon className="w-10 h-10 text-purple-400" />
-            </div>
-            <h3 className="text-xl mb-2" style={{ color: '#1f1f3d' }}>
-              No Sleep Data Yet
-            </h3>
-            <p className="text-base text-gray-600">
-              Patient hasn't logged any sleep data yet
+          <h2 className="text-[16px] font-[600]" style={{ color: token.text }}>Sleep Analytics</h2>
+        </div>
+        <p className="text-[11px] mb-4" style={{ color: token.gray400, paddingLeft: '40px' }}>
+          {"Patient's logged sleep data."}
+        </p>
+
+        {sleepLogs.length === 0 ? (
+          <div className="flex flex-col items-center py-8">
+            <Moon size={20} strokeWidth={1.5} color={token.gray400} />
+            <p className="text-[12px] mt-2 text-center" style={{ color: token.gray400 }}>
+              No sleep data available for this patient.
             </p>
           </div>
+        ) : (
+          <>
+            {/* Metric cards */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+              <div className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                <p className="text-[11px] font-[500] mb-1" style={{ color: token.gray400 }}>Avg Sleep</p>
+                <p className="text-[20px] font-[500]" style={{ color: token.text }}>{sleepAvg}h</p>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>Target: 7–9h</p>
+              </div>
+              <div className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                <p className="text-[11px] font-[500] mb-1" style={{ color: token.gray400 }}>Avg Quality</p>
+                <div className="flex items-center gap-0.5 mb-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star key={s} size={13} className={s <= Math.round(Number(qualityAvg)) ? 'text-gray-600 fill-gray-600' : 'text-gray-300'} />
+                  ))}
+                </div>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>{qualityAvg} / 5.0</p>
+              </div>
+              <div className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                <p className="text-[11px] font-[500] mb-1" style={{ color: token.gray400 }}>Consistency</p>
+                <p className="text-[20px] font-[500]" style={{ color: token.text }}>{sleepConsistency ?? '—'}</p>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>out of 100</p>
+              </div>
+              <div className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                <p className="text-[11px] font-[500] mb-1" style={{ color: token.gray400 }}>Weekly Trend</p>
+                <div className="flex items-center gap-1 my-0.5">
+                  {sleepTrend === 'improving' ? <TrendingUp size={16} color="#059669" /> : sleepTrend === 'declining' ? <TrendingDown size={16} color="#DC2626" /> : <Minus size={16} color={token.gray400} />}
+                </div>
+                <p className="text-[11px] capitalize" style={{ color: sleepTrend === 'improving' ? '#059669' : sleepTrend === 'declining' ? '#DC2626' : token.gray400 }}>
+                  {sleepTrend}
+                </p>
+              </div>
+            </div>
+
+            {/* Sleep duration line chart */}
+            <p className="text-[13px] font-[600] mb-3" style={{ color: token.text }}>Sleep Duration — Last 14 Days</p>
+            <div style={{ height: 200 }} className="mb-5">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={sleepChartData} margin={{ top: 5, right: 10, left: -25, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis dataKey="shortDate" tick={{ fill: '#6b7280', fontSize: 11 }} interval="preserveStartEnd" />
+                  <YAxis tick={{ fill: '#6b7280', fontSize: 11 }} domain={[4, 10]} ticks={[4, 5, 6, 7, 8, 9, 10]} />
+                  <Tooltip
+                    contentStyle={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: 10, fontSize: 12 }}
+                    labelStyle={{ color: token.text, fontWeight: 500 }}
+                    formatter={(v: number) => [`${v}h`, 'Sleep']}
+                  />
+                  <ReferenceLine y={7} stroke="#14b8a6" strokeDasharray="4 3" label={{ value: '7h target', fill: '#14b8a6', fontSize: 10, position: 'insideTopRight' }} />
+                  <Line type="monotone" dataKey="hours" stroke="#8b5cf6" strokeWidth={2.5} dot={{ fill: '#8b5cf6', r: 3 }} activeDot={{ r: 5 }} name="Sleep Hours" isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Pattern analysis */}
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>Weekday Avg</p>
+                <p className="text-[18px] font-[500] mt-0.5" style={{ color: token.text }}>{weekdayAvgSleep ? `${weekdayAvgSleep}h` : '—'}</p>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>Mon–Fri</p>
+              </div>
+              <div className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>Weekend Avg</p>
+                <p className="text-[18px] font-[500] mt-0.5" style={{ color: token.text }}>{weekendAvgSleep ? `${weekendAvgSleep}h` : '—'}</p>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>Sat–Sun</p>
+              </div>
+              <div className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>Total Logs</p>
+                <p className="text-[18px] font-[500] mt-0.5" style={{ color: token.text }}>{sleepLogs.length}</p>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>Past 30 days</p>
+              </div>
+            </div>
+
+            {/* 4-week summary */}
+            <p className="text-[13px] font-[600] mb-2" style={{ color: token.text }}>4-Week Summary</p>
+            <div className="space-y-2">
+              {sleepWeeklyBreakdown.map((week, i) => (
+                <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                  <div className="flex items-center gap-2">
+                    <Calendar size={13} strokeWidth={1.5} color={token.gray400} />
+                    <p className="text-[12px]" style={{ color: token.text }}>{week.label}</p>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[11px]" style={{ color: token.gray400 }}>{week.logs} log{week.logs !== 1 ? 's' : ''}</span>
+                    <span className="text-[12px] font-[500]" style={{ color: week.avgHours >= 7 ? '#059669' : week.avgHours > 0 ? '#B45309' : token.gray400 }}>
+                      {week.avgHours > 0 ? `${week.avgHours}h avg` : '—'}
+                    </span>
+                    <div className="flex gap-0.5">
+                      {[1, 2, 3, 4, 5].map((s) => (
+                        <Star key={s} size={10} className={s <= Math.round(week.avgQuality) ? 'text-gray-500 fill-gray-500' : 'text-gray-200'} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
       </div>
 
-      {/* Two Column Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* ── Two-column: Clinical Notes + Recommendations ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         {/* Clinical Notes */}
-        <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-          <h2 className="text-2xl mb-6" style={{ color: '#1f1f3d' }}>
-            Clinical Notes
-          </h2>
+        <div style={cardStyle}>
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ backgroundColor: token.gray100 }}>
+              <FileText size={16} strokeWidth={1.5} color={token.gray600} />
+            </div>
+            <h2 className="text-[16px] font-[600]" style={{ color: token.text }}>Clinical Notes</h2>
+          </div>
 
           {/* Add Note Form */}
-          <div className="mb-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
-            <label className="block text-sm text-gray-700 mb-2">
-              Note Type
-            </label>
+          <div className="mb-4 p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+            <label className="block text-[12px] font-[500] mb-1.5" style={{ color: token.gray600 }}>Note Type</label>
             <select
               value={noteType}
-              onChange={(e) => setNoteType(e.target.value as any)}
-              className="w-full h-11 px-3 rounded-lg border border-gray-300 text-base mb-3"
+              onChange={(e) => setNoteType(e.target.value as typeof noteType)}
+              className="w-full h-9 px-3 rounded-lg text-[13px] mb-2 outline-none"
+              style={{ border: `0.5px solid ${token.purple200}`, backgroundColor: token.white, color: token.text }}
             >
               <option value="general">General Note</option>
               <option value="concern">Concern</option>
@@ -363,131 +493,176 @@ export default function PatientDetail() {
               <option value="follow-up">Follow-up Required</option>
             </select>
 
-            <Textarea
+            <textarea
               value={noteText}
               onChange={(e) => setNoteText(e.target.value)}
-              placeholder="Add a clinical note..."
-              className="min-h-[100px] text-base mb-3"
+              placeholder="Add a clinical note…"
+              className="w-full min-h-[80px] px-3 py-2 rounded-lg text-[13px] mb-2 outline-none resize-none"
+              style={{ border: `0.5px solid ${token.purple200}`, backgroundColor: token.white, color: token.text }}
             />
 
-            <Button
+            <button
               onClick={handleAddNote}
-              className="w-full bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white h-11 rounded-xl"
+              className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-[13px] font-[500] transition-colors"
+              style={{ backgroundColor: token.purple700, color: token.white }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#5B21B6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = token.purple700)}
             >
-              <Send className="w-5 h-5 mr-2" />
+              <Send size={14} strokeWidth={1.5} />
               Add Note
-            </Button>
+            </button>
           </div>
 
           {/* Notes List */}
-          <div className="space-y-3 max-h-[400px] overflow-y-auto">
-            {patientNotes.length > 0 ? (
-              patientNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className="p-4 rounded-xl bg-gray-50 border border-gray-200"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span
-                      className={`text-xs px-2 py-1 rounded-full ${
-                        note.type === 'concern'
-                          ? 'bg-red-100 text-red-700'
-                          : note.type === 'follow-up'
-                          ? 'bg-amber-100 text-amber-700'
-                          : note.type === 'progress'
-                          ? 'bg-teal-100 text-teal-700'
-                          : 'bg-gray-200 text-gray-700'
-                      }`}
-                    >
-                      {note.type}
-                    </span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(note.timestamp).toLocaleDateString()}
-                    </span>
+          <div className="space-y-2 max-h-[320px] overflow-y-auto">
+            {regularNotes.length > 0 ? (
+              regularNotes.map((note) => {
+                const ntc = noteTypeConfig[note.type] || noteTypeConfig.general;
+                return (
+                  <div key={note.id} className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-[11px] font-[500] px-2 py-0.5 rounded-full capitalize" style={{ backgroundColor: ntc.bg, color: ntc.color }}>{note.type}</span>
+                      <span className="text-[11px]" style={{ color: token.gray400 }}>{new Date(note.timestamp).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-[13px]" style={{ color: token.text }}>{note.note}</p>
                   </div>
-                  <p className="text-sm text-gray-700">{note.note}</p>
-                </div>
-              ))
+                );
+              })
             ) : (
-              <p className="text-sm text-gray-500 text-center py-8">
-                No clinical notes yet
-              </p>
+              <div className="flex flex-col items-center py-8">
+                <Inbox size={20} strokeWidth={1.5} color={token.gray400} />
+                <p className="text-[12px] mt-2" style={{ color: token.gray400 }}>No clinical notes yet</p>
+              </div>
             )}
           </div>
         </div>
 
-        {/* Quick Actions & Summary */}
-        <div className="space-y-6">
-          {/* Module Progress */}
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h2 className="text-2xl mb-4" style={{ color: '#1f1f3d' }}>
-              Module Progress
-            </h2>
-            <div className="space-y-4">
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-base text-gray-600">
-                    Overall Completion
-                  </span>
-                  <span className="text-lg" style={{ color: '#1f1f3d' }}>
-                    {moduleProgressStats.overallProgress}%
-                  </span>
-                </div>
-                <div className="h-3 bg-gray-200 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-gradient-to-r from-purple-600 to-purple-700 rounded-full transition-all"
-                    style={{ width: `${moduleProgressStats.overallProgress}%` }}
-                  ></div>
-                </div>
+        {/* Clinical Recommendations */}
+        <div style={cardStyle}>
+          <div className="flex items-center justify-between mb-4 w-full">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ backgroundColor: token.gray100 }}>
+                <AlertTriangle size={16} strokeWidth={1.5} color={token.gray600} />
               </div>
-              <div className="grid grid-cols-2 gap-4 pt-2">
-                <div className="text-center p-3 bg-teal-50 rounded-xl">
-                  <p className="text-2xl mb-1" style={{ color: '#1f1f3d' }}>
-                    {moduleProgressStats.completedModules}
-                  </p>
-                  <p className="text-sm text-gray-600">Completed</p>
-                </div>
-                <div className="text-center p-3 bg-purple-50 rounded-xl">
-                  <p className="text-2xl mb-1" style={{ color: '#1f1f3d' }}>
-                    {moduleProgressStats.totalModules - moduleProgressStats.completedModules}
-                  </p>
-                  <p className="text-sm text-gray-600">Remaining</p>
-                </div>
-              </div>
+              <h2 className="text-[16px] font-[600]" style={{ color: token.text }}>Clinical Recommendations</h2>
             </div>
+            <button
+              onClick={() => setIsRecModalOpen(true)}
+              className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-gray-100 transition-colors"
+              style={{ color: token.purple700 }}
+            >
+              <Plus size={16} strokeWidth={2} />
+            </button>
           </div>
 
-          {/* Recommendations */}
-          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
-            <h2 className="text-2xl mb-4" style={{ color: '#1f1f3d' }}>
-              Clinical Recommendations
-            </h2>
-            <div className="space-y-3">
-              {daysSinceLastLog !== null && daysSinceLastLog > 3 && (
-                <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-                  <p className="text-sm text-amber-900">
-                    <strong>Action Required:</strong> Patient has not logged sleep in {daysSinceLastLog} days. Schedule follow-up call.
-                  </p>
-                </div>
-              )}
-              {sleepStats.averageHours > 0 && sleepStats.averageHours < 7 && (
-                <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-                  <p className="text-sm text-blue-900">
-                    <strong>Observation:</strong> Average sleep below recommended 7 hours. Review sleep hygiene practices.
-                  </p>
-                </div>
-              )}
-              {moduleProgressStats.overallProgress < 50 && (
-                <div className="p-4 bg-purple-50 rounded-xl border border-purple-200">
-                  <p className="text-sm text-purple-900">
-                    <strong>Suggestion:</strong> Encourage module completion to maximize intervention benefits.
-                  </p>
-                </div>
-              )}
-            </div>
+          <div className="space-y-2">
+            {recommendations.length > 0 ? (
+              <div className="space-y-2">
+                {recommendations.map((rec) => (
+                  <div key={rec.id} className="p-3 rounded-[10px] relative" style={{ backgroundColor: '#F9F7FF', border: `0.5px solid ${token.purple200}` }}>
+                    <p className="text-[13px]" style={{ color: token.text, paddingRight: '20px' }}>{rec.note}</p>
+                    <div className="absolute top-3 right-3" title={rec.read ? 'Read by patient' : 'Unread'}>
+                      {rec.read ? <CheckCheck size={14} strokeWidth={1.5} color={token.gray600} /> : <Check size={14} strokeWidth={1.5} color={token.gray400} />}
+                    </div>
+                    <p className="text-[10px] mt-1" style={{ color: token.gray400 }}>{new Date(rec.timestamp).toLocaleDateString()}</p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {daysSinceLastActive > 3 && (
+              <div className="p-3 rounded-[10px]" style={{ backgroundColor: '#FFFBEB', border: '0.5px solid #FDE68A' }}>
+                <p className="text-[12px]" style={{ color: '#92400E' }}>
+                  <strong>Action Required:</strong> Patient has not been active for {daysSinceLastActive} days. Schedule a follow-up call.
+                </p>
+              </div>
+            )}
+
+            {recommendations.length === 0 && daysSinceLastActive <= 3 && (
+              <div className="flex flex-col items-center py-8">
+                <ShieldCheck size={20} strokeWidth={1.5} color={token.gray400} />
+                <p className="text-[12px] mt-2 text-center" style={{ color: token.gray400 }}>
+                  No recommendations yet. Use the + button to add one.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Send Message Modal */}
+      {isMessageModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl p-5 w-full max-w-md shadow-xl border border-gray-100">
+            <h3 className="text-lg font-semibold mb-3" style={{ color: token.text }}>Send Message to {patient.name}</h3>
+            <textarea
+              className="w-full h-32 p-3 border rounded-lg resize-none mb-4 outline-none focus:ring-2"
+              style={{ borderColor: token.purple200 }}
+              placeholder="Type your message here..."
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setIsMessageModalOpen(false)} className="px-4 py-2 text-sm font-medium hover:bg-gray-100 rounded-lg" style={{ color: token.gray600 }}>Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!messageText.trim()) return;
+                  try {
+                    await sendMessage(patient.id, messageText.trim());
+                    toast.success('Message sent');
+                    setIsMessageModalOpen(false);
+                    setMessageText('');
+                  } catch {
+                    toast.error('Failed to send message');
+                  }
+                }}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                style={{ backgroundColor: token.purple700 }}
+              >
+                Send Message
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Recommendation Modal */}
+      {isRecModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-xl p-5 w-full max-w-md shadow-xl border border-gray-100">
+            <h3 className="text-lg font-semibold mb-3" style={{ color: token.text }}>Add Clinical Recommendation</h3>
+            <textarea
+              className="w-full h-32 p-3 border rounded-lg resize-none mb-4 outline-none focus:ring-2"
+              style={{ borderColor: token.purple200 }}
+              placeholder="Enter your recommendation. It will be sent to the patient as a notification."
+              value={recText}
+              onChange={(e) => setRecText(e.target.value)}
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setIsRecModalOpen(false)} className="px-4 py-2 text-sm font-medium hover:bg-gray-100 rounded-lg" style={{ color: token.gray600 }}>Cancel</button>
+              <button
+                onClick={async () => {
+                  if (!recText.trim() || !patientId) return;
+                  const saved = await addNote({ patientId, clinicianId: user?.id ?? '', note: recText.trim(), type: 'recommendation' });
+                  if (!saved) { toast.error('Failed to save recommendation'); return; }
+                  try {
+                    await sendMessage(patient.id, 'Clinical Recommendation: ' + recText.trim());
+                  } catch {
+                    // non-critical
+                  }
+                  toast.success('Recommendation sent to patient');
+                  setIsRecModalOpen(false);
+                  setRecText('');
+                }}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                style={{ backgroundColor: token.purple700 }}
+              >
+                Send Recommendation
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

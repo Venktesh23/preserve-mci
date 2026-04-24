@@ -188,6 +188,14 @@ export const messageAPI = {
       }
     }
 
+    // Sort messages within each conversation chronologically (oldest first)
+    // so the chat thread renders top→bottom and the scroll anchor lands on the newest.
+    for (const conv of conversationMap.values()) {
+      conv.messages.sort(
+        (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
+      );
+    }
+
     return {
       conversations: Array.from(conversationMap.values()).sort(
         (a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime(),
