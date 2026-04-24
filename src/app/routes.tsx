@@ -1,4 +1,3 @@
-import React from "react";
 import { createBrowserRouter } from "react-router";
 import RootLayout from "./components/RootLayout";
 import LandingPage from "./components/LandingPage";
@@ -24,7 +23,6 @@ import CarePartnerMessagesCenter from "./components/care-partner/CarePartnerMess
 import ClinicianMessagesCenter from "./components/clinician/ClinicianMessagesCenter";
 import NotFound from "./components/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
-import ClinicianSettingsPage from "./components/clinician/SettingsPage";
 import CarePartnerSettingsPage from "./components/care-partner/SettingsPage";
 
 /**
@@ -106,15 +104,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "clinician/settings",
-        element: (
-          <ProtectedRoute allowedRoles={['clinician']}>
-            <ClinicianSettingsPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "care-partner/settings",
+        path: "caregiver/settings",
         element: (
           <ProtectedRoute allowedRoles={['care_partner']}>
             <CarePartnerSettingsPage />
@@ -129,9 +119,9 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-      // Care Partner Routes
+      // Care Partner Routes — all rendered inside CarePartnerDashboard (shell + sidebar)
       {
-        path: "care-partner/dashboard",
+        path: "caregiver",
         element: (
           <ProtectedRoute allowedRoles={['care_partner']}>
             <CarePartnerDashboard />
@@ -139,7 +129,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "care-partner/sleep-logs",
+        path: "caregiver/progress",
         element: (
           <ProtectedRoute allowedRoles={['care_partner']}>
             <CarePartnerDashboard />
@@ -147,7 +137,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "care-partner/send-message",
+        path: "caregiver/messages",
         element: (
           <ProtectedRoute allowedRoles={['care_partner']}>
             <CarePartnerDashboard />
@@ -155,24 +145,16 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "care-partner/resources",
+        path: "caregiver/settings",
         element: (
           <ProtectedRoute allowedRoles={['care_partner']}>
             <CarePartnerDashboard />
           </ProtectedRoute>
         ),
       },
+      // Clinician Routes — all rendered inside ClinicianDashboard (shell + sidebar)
       {
-        path: "care-partner/messages",
-        element: (
-          <ProtectedRoute allowedRoles={['care_partner']}>
-            <CarePartnerMessagesCenter />
-          </ProtectedRoute>
-        ),
-      },
-      // Clinician Routes
-      {
-        path: "clinician/dashboard",
+        path: "clinician",
         element: (
           <ProtectedRoute allowedRoles={['clinician']}>
             <ClinicianDashboard />
@@ -180,7 +162,7 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "clinician/analytics",
+        path: "clinician/patients",
         element: (
           <ProtectedRoute allowedRoles={['clinician']}>
             <ClinicianDashboard />
@@ -188,7 +170,15 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "clinician/patient/:patientId",
+        path: "clinician/patients/:patientId",
+        element: (
+          <ProtectedRoute allowedRoles={['clinician']}>
+            <ClinicianDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "clinician/sleep-data",
         element: (
           <ProtectedRoute allowedRoles={['clinician']}>
             <ClinicianDashboard />
@@ -199,7 +189,15 @@ export const router = createBrowserRouter([
         path: "clinician/messages",
         element: (
           <ProtectedRoute allowedRoles={['clinician']}>
-            <ClinicianMessagesCenter />
+            <ClinicianDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "clinician/settings",
+        element: (
+          <ProtectedRoute allowedRoles={['clinician']}>
+            <ClinicianDashboard />
           </ProtectedRoute>
         ),
       },

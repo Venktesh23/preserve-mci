@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   Moon,
@@ -25,6 +25,7 @@ import {
 import { Button } from './ui/button';
 import { useSleepLogs } from '../hooks/useSleepLogs';
 import { useAllModulesProgress } from '../hooks/useModuleProgress';
+import { moduleData, moduleWeekOrder } from '../data/moduleData';
 import { useReminders } from '../hooks/useReminders';
 import { useAuth } from '../contexts/useAuth';
 import { useMessaging } from '../hooks/useMessaging';
@@ -32,6 +33,7 @@ import SleepLogModal, { SleepLogData } from './SleepLogModal';
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, signout } = useAuth();
   const { unreadCount } = useMessaging();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -65,20 +67,30 @@ export default function PatientDashboard() {
     addSleepLog(data);
   };
 
-  // User name from auth context
   const userName = user?.name || 'Patient';
   const firstName = userName.trim().split(/\s+/)[0] || 'Patient';
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening';
 
-  // Mock data
-  const currentWeek = 3;
-  const totalWeeks = 8;
-  const moduleProgress = 60; // percentage
+  // Real module progress from localStorage
+  const totalWeeks = moduleWeekOrder.length;
+  const currentWeekIndex = Math.min(moduleProgressStats.completedCount, totalWeeks - 1);
+  const currentWeek = Math.min(moduleProgressStats.completedCount + 1, totalWeeks);
+  const currentWeekKey = moduleWeekOrder[currentWeekIndex];
+  const currentModuleData = moduleData[currentWeekKey];
+  const currentModuleProgress = moduleProgressStats.allModules[currentWeekKey];
+  const lessonsCompleted = currentModuleProgress
+    ? [currentModuleProgress.videoWatched, currentModuleProgress.quizCompleted, currentModuleProgress.exerciseCompleted].filter(Boolean).length
+    : 0;
+  const moduleProgress = Math.round(
+    moduleWeekOrder.reduce((sum, key) => sum + (moduleProgressStats.allModules[key]?.progress ?? 0), 0) / totalWeeks
+  );
   const currentModule = {
-    title: 'Sleep Hygiene Essentials',
-    description: 'Learn key habits to improve your sleep environment and routine',
-    lessonsCompleted: 3,
-    totalLessons: 5,
-    estimatedTime: '25 min remaining',
+    title: currentModuleData.title,
+    description: currentModuleData.description,
+    lessonsCompleted,
+    totalLessons: 3,
+    estimatedTime: currentModuleData.duration,
   };
 
   // Real sleep statistics from localStorage
@@ -225,34 +237,34 @@ export default function PatientDashboard() {
     }
   };
 
-  const upcomingItems = [
-    {
-      type: 'appointment',
-      title: 'Check-in Call with Dr. Chen',
-      date: 'Tomorrow, 10:00 AM',
-      icon: CalendarCheck,
-    },
-    {
-      type: 'reminder',
-      title: 'Complete Week 3 Module',
-      date: 'Due in 2 days',
-      icon: ClipboardList,
-    },
-    {
-      type: 'reminder',
-      title: 'Log Sleep for Past 3 Days',
-      date: 'Today',
-      icon: Clock,
-    },
-  ];
+  const upcomingItems = useMemo(() => {
+    const items: { type: string; title: string; date: string; icon: typeof CalendarCheck }[] = [];
+    const today = new Date().toISOString().split('T')[0];
+    const hasLoggedToday = sleepLogs.some((l) => l.date?.split('T')[0] === today);
+    if (!hasLoggedToday) {
+      items.push({ type: 'reminder', title: "Log last night's sleep", date: 'Today', icon: Clock });
+    }
+    if (activeCount > 0) {
+      items.push({
+        type: 'reminder',
+        title: `${activeCount} active reminder${activeCount !== 1 ? 's' : ''}`,
+        date: 'Pending',
+        icon: ClipboardList,
+      });
+    }
+    if (items.length === 0) {
+      items.push({ type: 'info', title: 'All caught up! Keep logging your sleep.', date: '', icon: CalendarCheck });
+    }
+    return items;
+  }, [sleepLogs, activeCount]);
 
-  const navigationItems = [
-    { label: 'Dashboard', icon: LayoutDashboard, active: true, path: '/patient/dashboard' },
-    { label: 'Sleep Modules', icon: BookOpen, active: false, path: '/modules' },
-    { label: 'Sleep Log', icon: NotebookPen, active: false, path: '/patient/dashboard', action: 'log-sleep' },
-    { label: 'Sleep Analytics', icon: BarChart2, active: false, path: '/patient/sleep-analytics' },
-    { label: 'My Progress', icon: TrendingUp, active: false, path: '/patient/progress' },
-    { label: 'Notifications', icon: MessageCircle, active: false, path: '/patient/messages' },
+  const navigationItems: Array<{ label: string; icon: React.ElementType; path: string; action?: string; badge?: number }> = [
+    { label: 'Dashboard',      icon: LayoutDashboard, path: '/patient/dashboard' },
+    { label: 'Sleep Modules',  icon: BookOpen,        path: '/modules' },
+    { label: 'Sleep Log',      icon: NotebookPen,     path: '/patient/dashboard', action: 'log-sleep' },
+    { label: 'Sleep Analytics', icon: BarChart2,      path: '/patient/sleep-analytics' },
+    { label: 'My Progress',    icon: TrendingUp,      path: '/patient/progress' },
+    { label: 'Notifications',  icon: MessageCircle,   path: '/patient/messages', badge: unreadCount },
   ];
 
   // Suppress recharts duplicate key warning (known library issue)
@@ -337,6 +349,7 @@ export default function PatientDashboard() {
           <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
             {navigationItems.map((item) => {
               const Icon = item.icon;
+              const isActive = !item.action && location.pathname === item.path;
               return (
                 <button
                   key={item.label}
@@ -347,13 +360,14 @@ export default function PatientDashboard() {
                     } else {
                       navigate(item.path);
                     }
+                    setSidebarOpen(false);
                   }}
                   className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'}`}
                   style={{
                     fontSize: '15px',
                     fontWeight: 400,
-                    color: token.sidebarInactive,
-                    borderLeft: '2px solid transparent',
+                    color: isActive ? '#6D28D9' : token.sidebarInactive,
+                    borderLeft: isActive ? '2px solid #6D28D9' : '2px solid transparent',
                     borderRadius: '10px',
                     paddingTop: '10px',
                     paddingBottom: '10px',
@@ -361,7 +375,14 @@ export default function PatientDashboard() {
                     paddingRight: showSidebarLabels ? '16px' : '8px',
                   }}
                 >
-                  <Icon size={18} strokeWidth={1.5} color="#6B7280" className="flex-shrink-0" />
+                  <div className="relative flex-shrink-0">
+                    <Icon size={18} strokeWidth={1.5} color={isActive ? '#6D28D9' : '#6B7280'} />
+                    {item.badge != null && item.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-[#6D28D9] rounded-full flex items-center justify-center text-[9px] text-white font-bold">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </div>
                   <span
                     className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
                       showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
@@ -426,7 +447,7 @@ export default function PatientDashboard() {
 
         {/* Main Content */}
         <main
-          className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full"
+          className="flex-1 lg:pl-24 p-6 lg:p-8 max-w-7xl mx-auto w-full"
           style={{
             zoom: contentScale,
             marginLeft: 'auto',
@@ -438,7 +459,7 @@ export default function PatientDashboard() {
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <h1 className="mb-2" style={{ fontSize: '22px', fontWeight: 700, color: '#1A1A2E' }}>
-              Good Morning, {firstName}!
+              {greeting}, {firstName}!
               </h1>
               <p style={{ fontSize: '14px', color: '#6B7280', fontWeight: 400 }}>
                 You&apos;re doing great. Let&apos;s continue your sleep wellness journey.
@@ -535,7 +556,7 @@ export default function PatientDashboard() {
                     fontSize: '14px',
                     fontWeight: 500,
                   }}
-                  onClick={() => navigate('/modules/week-1')}
+                  onClick={() => navigate(`/modules/${currentWeekKey.replace('week', 'week-')}`)}
                 >
                   Continue Module
                   <ChevronRight size={16} strokeWidth={1.5} color="#6B7280" className="ml-2" />

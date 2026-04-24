@@ -1,12 +1,10 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useEffect } from 'react';
 import { useLocalStorage } from './useLocalStorage';
 import { STORAGE_KEYS } from '../utils/storage';
+import { supabase } from '../utils/supabaseClient';
 
-/**
- * Sleep Log Data Structure (imported from SleepLogModal)
- */
 export interface SleepLogData {
-  id?: string; // Add unique ID for each log
+  id?: string;
   date: string;
   hoursSlept: number;
   sleepQuality: number;
@@ -24,16 +22,10 @@ export interface SleepLogData {
   totalWakeMinutes?: number | null;
 }
 
-/**
- * Sleep Logs Storage
- */
 export interface SleepLogsStorage {
   logs: SleepLogData[];
 }
 
-/**
- * Sleep Statistics
- */
 export interface SleepStats {
   averageHours: number;
   averageQuality: number;
@@ -44,203 +36,186 @@ export interface SleepStats {
   last7Days: SleepLogData[];
 }
 
-/**
- * Hook for managing sleep logs with localStorage persistence
- * Provides functions for adding, editing, deleting, and analyzing sleep data
- */
+/* ── Supabase sync helpers ─────────────────────────────────── */
+
+async function syncAddToSupabase(log: SleepLogData) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('sleep_logs').upsert({
+      local_id: log.id,
+      user_id: user.id,
+      date: log.date,
+      hours_slept: log.hoursSlept,
+      sleep_quality: log.sleepQuality,
+      notes: log.notes ?? '',
+    }, { onConflict: 'local_id' });
+  } catch (e) {
+    console.warn('sleep_logs sync failed:', e);
+  }
+}
+
+async function syncUpdateToSupabase(id: string, updates: Partial<SleepLogData>) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const patch: Record<string, unknown> = {};
+    if (updates.hoursSlept !== undefined) patch.hours_slept = updates.hoursSlept;
+    if (updates.sleepQuality !== undefined) patch.sleep_quality = updates.sleepQuality;
+    if (updates.notes !== undefined) patch.notes = updates.notes;
+    if (updates.date !== undefined) patch.date = updates.date;
+    if (!Object.keys(patch).length) return;
+    await supabase.from('sleep_logs').update(patch).eq('local_id', id).eq('user_id', user.id);
+  } catch (e) {
+    console.warn('sleep_logs update sync failed:', e);
+  }
+}
+
+async function syncDeleteFromSupabase(id: string) {
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    await supabase.from('sleep_logs').delete().eq('local_id', id).eq('user_id', user.id);
+  } catch (e) {
+    console.warn('sleep_logs delete sync failed:', e);
+  }
+}
+
+/* ── Hook ──────────────────────────────────────────────────── */
+
 export function useSleepLogs() {
   const [storage, setStorage] = useLocalStorage<SleepLogsStorage>(
     STORAGE_KEYS.SLEEP_LOGS,
     { logs: [] }
   );
 
-  /**
-   * Add a new sleep log
-   */
+  // On mount: push any un-synced local logs to Supabase
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Fetch IDs already in Supabase for this user
+      const { data: existing } = await supabase
+        .from('sleep_logs')
+        .select('local_id')
+        .eq('user_id', user.id);
+
+      const syncedIds = new Set((existing ?? []).map((r: { local_id: string }) => r.local_id));
+
+      // Push any local logs not yet in Supabase
+      const unsynced = storage.logs.filter((l) => l.id && !syncedIds.has(l.id));
+      for (const log of unsynced) {
+        await syncAddToSupabase(log);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const addSleepLog = useCallback(
     (logData: Omit<SleepLogData, 'id'>) => {
-      const newLog: SleepLogData = {
-        ...logData,
-        id: generateId(),
-      };
-
+      const newLog: SleepLogData = { ...logData, id: generateId() };
       setStorage((prev) => ({
         logs: [newLog, ...prev.logs].sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
         ),
       }));
-
+      syncAddToSupabase(newLog);
       return newLog;
     },
     [setStorage]
   );
 
-  /**
-   * Update an existing sleep log
-   */
   const updateSleepLog = useCallback(
     (id: string, updates: Partial<SleepLogData>) => {
       setStorage((prev) => ({
-        logs: prev.logs.map((log) =>
-          log.id === id ? { ...log, ...updates } : log
-        ),
+        logs: prev.logs.map((log) => (log.id === id ? { ...log, ...updates } : log)),
       }));
+      syncUpdateToSupabase(id, updates);
     },
     [setStorage]
   );
 
-  /**
-   * Delete a sleep log
-   */
   const deleteSleepLog = useCallback(
     (id: string) => {
-      setStorage((prev) => ({
-        logs: prev.logs.filter((log) => log.id !== id),
-      }));
+      setStorage((prev) => ({ logs: prev.logs.filter((log) => log.id !== id) }));
+      syncDeleteFromSupabase(id);
     },
     [setStorage]
   );
 
-  /**
-   * Get sleep logs for a specific date range
-   */
   const getLogsByDateRange = useCallback(
-    (startDate: Date, endDate: Date) => {
-      return storage.logs.filter((log) => {
-        const logDate = new Date(log.date);
-        return logDate >= startDate && logDate <= endDate;
-      });
-    },
+    (startDate: Date, endDate: Date) =>
+      storage.logs.filter((log) => {
+        const d = new Date(log.date);
+        return d >= startDate && d <= endDate;
+      }),
     [storage.logs]
   );
 
-  /**
-   * Get last N days of sleep logs
-   */
   const getLastNDays = useCallback(
     (days: number) => {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-
-      return getLogsByDateRange(startDate, endDate);
+      const end = new Date();
+      const start = new Date();
+      start.setDate(start.getDate() - days);
+      return getLogsByDateRange(start, end);
     },
     [getLogsByDateRange]
   );
 
-  /**
-   * Calculate sleep statistics
-   */
   const stats: SleepStats = useMemo(() => {
     const logs = storage.logs;
-
     if (logs.length === 0) {
-      return {
-        averageHours: 0,
-        averageQuality: 0,
-        totalLogs: 0,
-        currentStreak: 0,
-        bestNight: null,
-        worstNight: null,
-        last7Days: [],
-      };
+      return { averageHours: 0, averageQuality: 0, totalLogs: 0, currentStreak: 0, bestNight: null, worstNight: null, last7Days: [] };
     }
-
-    // Calculate averages
-    const totalHours = logs.reduce((sum, log) => sum + log.hoursSlept, 0);
-    const totalQuality = logs.reduce((sum, log) => sum + log.sleepQuality, 0);
-    const averageHours = totalHours / logs.length;
-    const averageQuality = totalQuality / logs.length;
-
-    // Find best and worst nights (by quality)
-    const sortedByQuality = [...logs].sort((a, b) => b.sleepQuality - a.sleepQuality);
-    const bestNight = sortedByQuality[0];
-    const worstNight = sortedByQuality[sortedByQuality.length - 1];
-
-    // Calculate current streak (consecutive days with logs)
-    const currentStreak = calculateCurrentStreak(logs);
-
-    // Get last 7 days
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 7);
-    const last7Days = logs.filter((log) => {
-      const logDate = new Date(log.date);
-      return logDate >= startDate && logDate <= endDate;
-    });
-
+    const totalHours = logs.reduce((s, l) => s + l.hoursSlept, 0);
+    const totalQuality = logs.reduce((s, l) => s + l.sleepQuality, 0);
+    const sorted = [...logs].sort((a, b) => b.sleepQuality - a.sleepQuality);
+    const end = new Date(); const start = new Date(); start.setDate(start.getDate() - 7);
     return {
-      averageHours: Math.round(averageHours * 10) / 10,
-      averageQuality: Math.round(averageQuality * 10) / 10,
+      averageHours: Math.round((totalHours / logs.length) * 10) / 10,
+      averageQuality: Math.round((totalQuality / logs.length) * 10) / 10,
       totalLogs: logs.length,
-      currentStreak,
-      bestNight,
-      worstNight,
-      last7Days,
+      currentStreak: calculateCurrentStreak(logs),
+      bestNight: sorted[0],
+      worstNight: sorted[sorted.length - 1],
+      last7Days: logs.filter((l) => { const d = new Date(l.date); return d >= start && d <= end; }),
     };
   }, [storage.logs]);
 
-  /**
-   * Get chart data for last N days
-   */
   const getChartData = useCallback(
-    (days: number = 7) => {
+    (days = 7) => {
       const logs = getLastNDays(days);
-      const endDate = new Date();
-      const chartData = [];
-
-      // Create array of last N days
-      for (let i = days - 1; i >= 0; i--) {
-        const date = new Date(endDate);
-        date.setDate(date.getDate() - i);
+      const end = new Date();
+      return Array.from({ length: days }, (_, i) => {
+        const date = new Date(end);
+        date.setDate(date.getDate() - (days - 1 - i));
         const dateStr = date.toISOString().split('T')[0];
-
-        // Find log for this date
         const log = logs.find((l) => l.date.split('T')[0] === dateStr);
-
-        // Use fullDate as the unique identifier for React keys
-        chartData.push({
-          id: dateStr, // Unique identifier for React keys
+        return {
+          id: dateStr,
           date: date.toLocaleDateString('en-US', { weekday: 'short' }),
           fullDate: dateStr,
-          hours: log && typeof log.totalSleepMinutes === 'number' ? Number((log.totalSleepMinutes / 60).toFixed(1)) : 0,
-          sleepEfficiency: log && typeof log.sleepEfficiency === 'number' ? log.sleepEfficiency : null,
-          totalWakeMinutes: log && typeof log.totalWakeMinutes === 'number' ? log.totalWakeMinutes : null,
+          hours: log ? Number(log.hoursSlept.toFixed(1)) : 0,
+          sleepEfficiency: log?.sleepEfficiency ?? null,
+          totalWakeMinutes: log?.totalWakeMinutes ?? null,
           hasData: !!log && typeof log.totalSleepMinutes === 'number',
-        });
-      }
-
-      return chartData;
+        };
+      });
     },
     [getLastNDays]
   );
 
-  /**
-   * Clear all sleep logs
-   */
-  const clearAllLogs = useCallback(() => {
-    setStorage({ logs: [] });
-  }, [setStorage]);
-
-  /**
-   * Export logs as JSON
-   */
-  const exportLogs = useCallback(() => {
-    return JSON.stringify(storage.logs, null, 2);
-  }, [storage.logs]);
+  const clearAllLogs = useCallback(() => setStorage({ logs: [] }), [setStorage]);
+  const exportLogs = useCallback(() => JSON.stringify(storage.logs, null, 2), [storage.logs]);
 
   return {
-    // Data
     logs: storage.logs,
     stats,
-
-    // Actions
     addSleepLog,
     updateSleepLog,
     deleteSleepLog,
     clearAllLogs,
-
-    // Queries
     getLogsByDateRange,
     getLastNDays,
     getChartData,
@@ -248,42 +223,19 @@ export function useSleepLogs() {
   };
 }
 
-/**
- * Calculate consecutive days streak
- */
 function calculateCurrentStreak(logs: SleepLogData[]): number {
-  if (logs.length === 0) return 0;
-
-  const sortedLogs = [...logs].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-
+  if (!logs.length) return 0;
+  const sorted = [...logs].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   let streak = 0;
-  let currentDate = new Date();
-  currentDate.setHours(0, 0, 0, 0);
-
-  for (const log of sortedLogs) {
-    const logDate = new Date(log.date);
-    logDate.setHours(0, 0, 0, 0);
-
-    const diffDays = Math.floor(
-      (currentDate.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24)
-    );
-
-    if (diffDays === streak) {
-      streak++;
-      currentDate = logDate;
-    } else if (diffDays > streak) {
-      break;
-    }
+  let cur = new Date(); cur.setHours(0, 0, 0, 0);
+  for (const log of sorted) {
+    const d = new Date(log.date); d.setHours(0, 0, 0, 0);
+    const diff = Math.floor((cur.getTime() - d.getTime()) / 86400000);
+    if (diff === streak) { streak++; cur = d; } else if (diff > streak) break;
   }
-
   return streak;
 }
 
-/**
- * Generate unique ID for sleep log
- */
 function generateId(): string {
   return `log_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }

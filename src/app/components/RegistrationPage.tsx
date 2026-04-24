@@ -240,66 +240,84 @@ export default function RegistrationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (validateForm()) {
-      setIsLoading(true);
+
+    // Guard against double submission
+    if (isLoading) return;
+
+    if (!validateForm()) return;
+    if (!selectedRole) return;
+
+    setIsLoading(true);
+    try {
+      const name = `${formData.firstName.trim()} ${formData.lastName.trim()}`;
+      const role = selectedRole;
+
+      const createdUser = await signup(
+        formData.email.trim(),
+        formData.password,
+        name,
+        role,
+        formData.mobile_number.trim()
+      );
+
+      // Persist role-specific registration details (non-critical — failures are warnings only)
       try {
-        if (!selectedRole) return;
-        const name = `${formData.firstName} ${formData.lastName}`;
-        const role = selectedRole;
-
-        const createdUser = await signup(
-          formData.email,
-          formData.password,
-          name,
+        await dataAPI.save('registration_profile', {
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          mobile_number: formData.mobile_number.trim(),
           role,
-          formData.mobile_number
-        );
-
-        try {
-          await dataAPI.save('registration_profile', {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            mobile_number: formData.mobile_number,
-            role,
-            patient: {
-              dateOfBirth: formData.dateOfBirth,
-              emergencyContactName: formData.emergencyContactName,
-              emergencyContactPhone: formData.emergencyContactPhone,
-              medicalId: formData.medicalId,
-            },
-            carePartner: {
-              relationshipToPatient: formData.relationshipToPatient,
-              patientName: formData.patientName,
-              patientEmail: formData.patientEmail,
-            },
-            clinician: {
-              credentials: formData.credentials,
-              licenseNumber: formData.licenseNumber,
-              facility: formData.facility,
-              specialty: formData.specialty,
-            },
-          });
-        } catch (persistError) {
-          console.warn('Registration profile persistence skipped:', persistError);
-        }
-
-        const dashboardMap = {
-          patient: '/patient/dashboard',
-          care_partner: '/care-partner/dashboard',
-          clinician: '/clinician/dashboard',
-        } as const;
-
-        navigate(dashboardMap[createdUser.role]);
-      } catch (error: any) {
-        const message = error?.message || 'Failed to create account. Please try again.';
-        if (message.toLowerCase().includes('email') || message.toLowerCase().includes('account')) {
-          setErrors({ email: message });
-        } else {
-          setErrors({ password: message });
-        }
-      } finally {
-        setIsLoading(false);
+          patient: {
+            dateOfBirth: formData.dateOfBirth,
+            emergencyContactName: formData.emergencyContactName.trim(),
+            emergencyContactPhone: formData.emergencyContactPhone.trim(),
+            medicalId: formData.medicalId.trim(),
+          },
+          carePartner: {
+            relationshipToPatient: formData.relationshipToPatient.trim(),
+            patientName: formData.patientName.trim(),
+            patientEmail: formData.patientEmail.trim(),
+          },
+          clinician: {
+            credentials: formData.credentials.trim(),
+            licenseNumber: formData.licenseNumber.trim(),
+            facility: formData.facility.trim(),
+            specialty: formData.specialty.trim(),
+          },
+        });
+      } catch (persistError) {
+        console.warn('Registration profile persistence skipped:', persistError);
       }
+
+      const dashboardMap = {
+        patient: '/patient/dashboard',
+        care_partner: '/caregiver',
+        clinician: '/clinician',
+      } as const;
+
+      navigate(dashboardMap[createdUser.role]);
+    } catch (error: any) {
+      const message = (error?.message || 'Failed to create account. Please try again.').trim();
+
+      // Clear password fields on any API error — prevents stale passwords in the form
+      setFormData((prev) => ({ ...prev, password: '', confirmPassword: '' }));
+
+      if (
+        message.toLowerCase().includes('email') ||
+        message.toLowerCase().includes('account') ||
+        message.toLowerCase().includes('registered')
+      ) {
+        setErrors({ email: message });
+      } else if (
+        message.toLowerCase().includes('password')
+      ) {
+        setErrors({ password: message });
+      } else {
+        // Generic error — show at the top level (email field) so it's visible
+        setErrors({ email: message });
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -506,13 +524,13 @@ export default function RegistrationPage() {
                   helpText="We'll use this to send important program updates"
                 />
                 <InputField
-                  id="phone"
+                  id="mobile_number"
                   label="Phone Number"
                   type="tel"
                   placeholder="(555) 123-4567"
-                  value={formData.phone}
-                  onChange={(value) => handleInputChange('phone', value)}
-                  error={errors.phone}
+                  value={formData.mobile_number}
+                  onChange={(value) => handleInputChange('mobile_number', value)}
+                  error={errors.mobile_number}
                   required
                 />
               </div>

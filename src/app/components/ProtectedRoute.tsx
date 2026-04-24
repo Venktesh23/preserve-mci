@@ -38,15 +38,15 @@ export default function ProtectedRoute({
   }
 
   // Check role-based access if roles are specified
-  if (allowedRoles && !allowedRoles.includes(user.role)) {
+  if (allowedRoles && !allowedRoles.includes(user.role as any)) {
     // Redirect to appropriate dashboard based on user's actual role
-    const dashboardMap = {
+    const dashboardMap: Record<string, string> = {
       patient: '/patient/dashboard',
-      care_partner: '/care-partner/dashboard',
-      clinician: '/clinician/dashboard',
+      care_partner: '/caregiver',
+      clinician: '/clinician',
     };
     
-    return <Navigate to={dashboardMap[user.role]} replace />;
+    return <Navigate to={dashboardMap[user.role] || '/'} replace />;
   }
 
   // User is authenticated and has the right role
