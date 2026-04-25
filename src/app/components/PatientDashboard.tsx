@@ -264,7 +264,7 @@ export default function PatientDashboard() {
     { label: 'Sleep Log',      icon: NotebookPen,     path: '/patient/dashboard', action: 'log-sleep' },
     { label: 'Sleep Analytics', icon: BarChart2,      path: '/patient/sleep-analytics' },
     { label: 'My Progress',    icon: TrendingUp,      path: '/patient/progress' },
-    { label: 'Notifications',  icon: MessageCircle,   path: '/patient/messages', badge: unreadCount },
+    { label: 'Messages',       icon: MessageCircle,   path: '/patient/messages', badge: unreadCount },
   ];
 
   // Suppress recharts duplicate key warning (known library issue)

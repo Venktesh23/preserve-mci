@@ -161,7 +161,7 @@ export default function MessagesCenter({
           <div className="text-center">
             <Loader2 className="w-12 h-12 animate-spin mx-auto text-purple-600 mb-4" />
             <p className="text-lg text-gray-600">
-              {viewMode === 'notifications' ? 'Loading notifications...' : 'Loading messages...'}
+              {'Loading messages...'}
             </p>
           </div>
         </div>
@@ -173,24 +173,14 @@ export default function MessagesCenter({
     return (
       <Layout>
         <div className="space-y-6">
-          {/* Back to Dashboard */}
-          <button
-            onClick={() => navigate(dashboardPath)}
-            className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white transition-colors"
-            aria-label="Back to Dashboard"
-          >
-            <ArrowLeft size={18} color="#7200CA" />
-            <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>Back to Dashboard</span>
-          </button>
-
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-[22px] font-[700] text-[#1A1A2E] mb-1">
-                {pageTitle || 'Notifications'}
+                {pageTitle || 'Messages'}
               </h1>
               <p className="text-[14px] text-[#6B7280] font-[400]">
                 {unreadCount > 0
-                  ? `${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}`
+                  ? `${unreadCount} unread message${unreadCount !== 1 ? 's' : ''}`
                   : 'All caught up!'}
               </p>
             </div>
@@ -209,7 +199,7 @@ export default function MessagesCenter({
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <Input
                   type="text"
-                  placeholder="Search notifications..."
+                  placeholder="Search messages..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10 h-12 rounded-xl border-gray-200"
@@ -257,7 +247,7 @@ export default function MessagesCenter({
                 <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                   <MailOpen className="w-16 h-16 text-gray-300 mb-4" />
                   <p className="text-gray-500 text-lg">
-                    {searchQuery ? 'No notifications found' : 'No notifications yet'}
+                    {searchQuery ? 'No messages found' : 'No messages yet'}
                   </p>
                 </div>
               )}

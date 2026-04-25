@@ -30,7 +30,7 @@ const navigationItems = [
   { label: 'Sleep Log', icon: NotebookPen, path: '/patient/dashboard' },
   { label: 'Sleep Analytics', icon: BarChart2, path: '/patient/sleep-analytics' },
   { label: 'My Progress', icon: TrendingUp, path: '/patient/progress' },
-  { label: 'Notifications', icon: MessageCircle, path: '/patient/messages' },
+  { label: 'Messages', icon: MessageCircle, path: '/patient/messages' },
 ];
 
 export default function PatientSidebarShell({ children }: PatientSidebarShellProps) {

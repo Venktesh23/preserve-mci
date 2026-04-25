@@ -28,7 +28,7 @@ export default function PatientMessagesCenter() {
       dashboardPath="/patient/dashboard"
       layoutComponent={PatientMessagesLayout}
       viewMode="notifications"
-      pageTitle="Notifications"
+      pageTitle="Messages"
     />
   );
 }
