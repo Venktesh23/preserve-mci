@@ -29,6 +29,7 @@ interface MessagesCenterProps {
   viewMode?: 'messages' | 'notifications';
   pageTitle?: string;
   hint?: string;
+  embedded?: boolean;
 }
 
 export default function MessagesCenter({
@@ -37,6 +38,7 @@ export default function MessagesCenter({
   viewMode = 'messages',
   pageTitle,
   hint,
+  embedded = false,
 }: MessagesCenterProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -133,6 +135,7 @@ export default function MessagesCenter({
       case 'patient':
         return 'bg-blue-100 text-blue-700';
       case 'care_partner':
+      case 'caregiver':
         return 'bg-pink-100 text-pink-700';
       case 'clinician':
         return 'bg-purple-100 text-purple-700';
@@ -146,6 +149,7 @@ export default function MessagesCenter({
       case 'patient':
         return 'Patient';
       case 'care_partner':
+      case 'caregiver':
         return 'Care Partner';
       case 'clinician':
         return 'Clinician';
@@ -261,15 +265,17 @@ export default function MessagesCenter({
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Back to Dashboard */}
-        <button
-          onClick={() => navigate(dashboardPath)}
-          className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white transition-colors"
-          aria-label="Back to Dashboard"
-        >
-          <ArrowLeft size={18} color="#7200CA" />
-          <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>Back to Dashboard</span>
-        </button>
+        {/* Back to Dashboard — only shown when not embedded in a dashboard shell */}
+        {!embedded && (
+          <button
+            onClick={() => navigate(dashboardPath)}
+            className="inline-flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-white transition-colors"
+            aria-label="Back to Dashboard"
+          >
+            <ArrowLeft size={18} color="#7200CA" />
+            <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>Back to Dashboard</span>
+          </button>
+        )}
 
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">

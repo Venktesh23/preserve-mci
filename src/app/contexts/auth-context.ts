@@ -4,7 +4,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'patient' | 'care_partner' | 'clinician';
+  role: 'patient' | 'care_partner' | 'caregiver' | 'clinician';
   mobile_number?: string;
 }
 

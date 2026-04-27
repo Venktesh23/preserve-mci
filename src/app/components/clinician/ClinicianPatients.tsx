@@ -40,20 +40,29 @@ export default function ClinicianPatients() {
   const [newPatientSearch, setNewPatientSearch] = useState('');
   const [unassignedPatients, setUnassignedPatients] = useState<ClinicianPatient[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
 
   const now = new Date();
 
   useEffect(() => {
     if (!newPatientSearch.trim()) {
       setUnassignedPatients([]);
+      setSearchError(null);
       return;
     }
     
     const timeoutId = setTimeout(async () => {
       setIsSearching(true);
-      const results = await searchUnassignedPatients(newPatientSearch);
-      setUnassignedPatients(results);
-      setIsSearching(false);
+      try {
+        const results = await searchUnassignedPatients(newPatientSearch);
+        setUnassignedPatients(results);
+        setSearchError(null);
+      } catch (error: any) {
+        setUnassignedPatients([]);
+        setSearchError(error?.message || 'Unable to search patients right now.');
+      } finally {
+        setIsSearching(false);
+      }
     }, 300);
     
     return () => clearTimeout(timeoutId);
@@ -68,17 +77,28 @@ export default function ClinicianPatients() {
       toast.error(err?.message || 'Failed to assign patient. Please try again.');
       return;
     }
+
+    let messageSent = false;
     try {
       await sendMessage(
         patientInfo.id,
         'A clinician has been assigned to support your sleep program. You can now receive messages and clinical recommendations through the app.'
       );
+      messageSent = true;
     } catch {
-      // notification failure is non-critical
+      messageSent = false;
     }
-    toast.success(`${patientInfo.name} has been assigned to you. They will be notified.`);
+
+    if (messageSent) {
+      toast.success(`${patientInfo.name} has been assigned to you and notified.`);
+    } else {
+      toast.success(`${patientInfo.name} has been assigned to you.`);
+      toast.error('Patient notification message was not sent. You can message them from their profile.');
+    }
+
     setIsAddPatientOpen(false);
     setNewPatientSearch('');
+    setSearchError(null);
   };
 
   const filtered = patients.filter((p) => {
@@ -262,7 +282,15 @@ export default function ClinicianPatients() {
           <div className="bg-white rounded-xl w-full max-w-lg shadow-xl border border-gray-100 flex flex-col max-h-[80vh]">
             <div className="p-5 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Add Patient</h3>
-              <button onClick={() => setIsAddPatientOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
+              <button
+                onClick={() => {
+                  setIsAddPatientOpen(false);
+                  setSearchError(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
             </div>
             
             <div className="p-5 border-b border-gray-100">
@@ -278,6 +306,14 @@ export default function ClinicianPatients() {
                 />
               </div>
             </div>
+
+            {searchError && (
+              <div className="px-5 pt-4 pb-0">
+                <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200">
+                  <p className="text-[12px] text-red-700">{searchError}</p>
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-5 space-y-3">
               {isSearching ? (
@@ -296,7 +332,7 @@ export default function ClinicianPatients() {
                 </div>
               ) : (
                 filteredUnassigned.map(p => (
-                  <div key={p.email} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-colors">
+                  <div key={p.id} className="flex items-center justify-between p-3 rounded-lg border border-gray-100 hover:border-purple-200 hover:bg-purple-50 transition-colors">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-medium">
                         {p.name.charAt(0)}

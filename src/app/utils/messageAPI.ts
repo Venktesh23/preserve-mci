@@ -4,10 +4,10 @@ export interface Message {
   id: string;
   senderId: string;
   senderName: string;
-  senderRole: 'patient' | 'care_partner' | 'clinician';
+  senderRole: 'patient' | 'care_partner' | 'caregiver' | 'clinician';
   recipientId: string;
   recipientName: string;
-  recipientRole: 'patient' | 'care_partner' | 'clinician';
+  recipientRole: 'patient' | 'care_partner' | 'caregiver' | 'clinician';
   subject: string;
   content: string;
   attachments: Attachment[];
@@ -28,7 +28,7 @@ export interface Attachment {
 export interface Conversation {
   partnerId: string;
   partnerName: string;
-  partnerRole: 'patient' | 'care_partner' | 'clinician';
+  partnerRole: 'patient' | 'care_partner' | 'caregiver' | 'clinician';
   messages: Message[];
   unreadCount: number;
   lastMessageAt: string;
@@ -49,7 +49,7 @@ type MessageRow = {
 
 type ProfileMapValue = {
   full_name: string;
-  role: 'patient' | 'care_partner' | 'clinician';
+  role: 'patient' | 'care_partner' | 'caregiver' | 'clinician';
 };
 
 async function getCurrentUserId() {

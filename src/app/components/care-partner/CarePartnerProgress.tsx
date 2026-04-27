@@ -113,7 +113,7 @@ export default function CarePartnerProgress() {
       <div className="flex items-center space-x-4">
         <Button
           variant="ghost"
-          onClick={() => navigate('/care-partner/dashboard')}
+          onClick={() => navigate('/caregiver')}
           className="p-2 hover:bg-gray-100 rounded-xl"
         >
           <ChevronLeft className="w-6 h-6" />
@@ -358,7 +358,7 @@ export default function CarePartnerProgress() {
               </div>
             </div>
             <Button
-              onClick={() => navigate('/care-partner/messages')}
+              onClick={() => navigate('/caregiver/messages')}
               className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white h-11 px-6 rounded-xl"
             >
               Send {firstName} a Message

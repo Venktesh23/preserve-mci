@@ -168,7 +168,7 @@ export default function PatientOverview() {
                 Consider sending an encouraging message or checking in.
               </p>
               <Button
-                onClick={() => navigate('/care-partner/send-message')}
+                onClick={() => navigate('/caregiver/messages')}
                 className="bg-amber-600 hover:bg-amber-700 text-white h-11 px-6 rounded-xl"
               >
                 Send Encouragement
@@ -223,7 +223,7 @@ export default function PatientOverview() {
           </div>
           <Button
             variant="ghost"
-            onClick={() => navigate('/care-partner/sleep-logs')}
+            onClick={() => navigate('/caregiver/sleep-data')}
             className="text-purple-600 hover:text-purple-700"
           >
             View All Logs
@@ -348,7 +348,7 @@ export default function PatientOverview() {
           </h2>
           <div className="space-y-3">
             <button
-              onClick={() => navigate('/care-partner/sleep-logs')}
+              onClick={() => navigate('/caregiver/sleep-data')}
               className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-teal-200 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 transition-all"
             >
               <div className="flex items-center space-x-4">
@@ -363,7 +363,7 @@ export default function PatientOverview() {
             </button>
 
             <button
-              onClick={() => navigate('/care-partner/send-message')}
+              onClick={() => navigate('/caregiver/messages')}
               className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-purple-200 bg-purple-50 hover:bg-purple-100 hover:border-purple-300 transition-all"
             >
               <div className="flex items-center space-x-4">
@@ -378,7 +378,7 @@ export default function PatientOverview() {
             </button>
 
             <button
-              onClick={() => navigate('/care-partner/resources')}
+              onClick={() => navigate('/caregiver/resources')}
               className="w-full flex items-center justify-between p-4 rounded-xl border-2 border-teal-200 bg-teal-50 hover:bg-teal-100 hover:border-teal-300 transition-all"
             >
               <div className="flex items-center space-x-4">

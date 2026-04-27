@@ -118,7 +118,7 @@ export default function SendMessage() {
 
     // Navigate back after a short delay
     setTimeout(() => {
-      navigate('/care-partner/dashboard');
+      navigate('/caregiver');
     }, 1500);
   };
 
@@ -130,7 +130,7 @@ export default function SendMessage() {
       <div className="flex items-center space-x-4">
         <Button
           variant="ghost"
-          onClick={() => navigate('/care-partner/dashboard')}
+          onClick={() => navigate('/caregiver')}
           className="p-2 hover:bg-gray-100 rounded-xl"
         >
           <ChevronLeft className="w-6 h-6" />

@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react';
-import { messageAPI, Conversation, Message, Attachment } from '../utils/messageAPI';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { messageAPI, Conversation, Attachment } from '../utils/messageAPI';
 import { useAuth } from '../contexts/useAuth';
+import { supabase } from '../utils/supabaseClient';
 
 export function useMessaging() {
   const { user } = useAuth();
@@ -9,29 +10,17 @@ export function useMessaging() {
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  // Fetch all conversations
   const fetchConversations = useCallback(async () => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    
+    if (!user) { setLoading(false); return; }
     try {
       setLoading(true);
       setError(null);
       const data = await messageAPI.getConversations();
       setConversations(data.conversations);
-      
-      // Calculate total unread count
-      const total = data.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
-      setUnreadCount(total);
+      setUnreadCount(data.conversations.reduce((sum, conv) => sum + conv.unreadCount, 0));
     } catch (err: any) {
-      // Only log errors in development
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Failed to fetch conversations:', err);
-      }
+      console.error('Failed to fetch conversations:', err);
       setError(err.message);
-      // Don't show error in UI for empty conversations
       setConversations([]);
       setUnreadCount(0);
     } finally {
@@ -39,19 +28,20 @@ export function useMessaging() {
     }
   }, [user]);
 
-  // Fetch unread count only
+  // Stable ref so the real-time callback always calls the latest version of
+  // fetchConversations without needing it in the subscription effect's dep array.
+  // This prevents the channel from being torn down and rebuilt on every render.
+  const fetchRef = useRef(fetchConversations);
+  useEffect(() => { fetchRef.current = fetchConversations; }, [fetchConversations]);
+
   const fetchUnreadCount = useCallback(async () => {
     if (!user) return;
-    
     try {
       const data = await messageAPI.getUnreadCount();
       setUnreadCount(data.unreadCount);
-    } catch (err: any) {
-      console.error('Failed to fetch unread count:', err);
-    }
+    } catch {}
   }, [user]);
 
-  // Send a message
   const sendMessage = useCallback(async (
     recipientId: string,
     content: string,
@@ -60,17 +50,8 @@ export function useMessaging() {
     replyToId?: string
   ) => {
     try {
-      const result = await messageAPI.sendMessage({
-        recipientId,
-        subject,
-        content,
-        attachments,
-        replyToId,
-      });
-      
-      // Refresh conversations after sending
+      const result = await messageAPI.sendMessage({ recipientId, subject, content, attachments, replyToId });
       await fetchConversations();
-      
       return result.message;
     } catch (err: any) {
       console.error('Failed to send message:', err);
@@ -78,62 +59,43 @@ export function useMessaging() {
     }
   }, [fetchConversations]);
 
-  // Mark a message as read
   const markAsRead = useCallback(async (messageId: string) => {
     try {
       await messageAPI.markAsRead(messageId);
-      
-      // Update local state
-      setConversations(prev => 
+      setConversations(prev =>
         prev.map(conv => ({
           ...conv,
-          messages: conv.messages.map(msg =>
-            msg.id === messageId ? { ...msg, read: true } : msg
-          ),
-          unreadCount: conv.messages.filter(msg => 
-            !msg.read && msg.id !== messageId && msg.recipientId === user?.id
+          messages: conv.messages.map(msg => msg.id === messageId ? { ...msg, read: true } : msg),
+          unreadCount: conv.messages.filter(
+            msg => !msg.read && msg.id !== messageId && msg.recipientId === user?.id
           ).length,
         }))
       );
-      
-      // Update unread count
       setUnreadCount(prev => Math.max(0, prev - 1));
     } catch (err: any) {
       console.error('Failed to mark message as read:', err);
     }
   }, [user]);
 
-  // Mark all messages from a partner as read
   const markAllAsRead = useCallback(async (partnerId: string) => {
     try {
       const result = await messageAPI.markAllAsRead(partnerId);
-      
-      // Update local state
       setConversations(prev =>
-        prev.map(conv => 
+        prev.map(conv =>
           conv.partnerId === partnerId
-            ? {
-                ...conv,
-                messages: conv.messages.map(msg => ({ ...msg, read: true })),
-                unreadCount: 0,
-              }
+            ? { ...conv, messages: conv.messages.map(msg => ({ ...msg, read: true })), unreadCount: 0 }
             : conv
         )
       );
-      
-      // Update unread count
       setUnreadCount(prev => Math.max(0, prev - result.markedCount));
     } catch (err: any) {
       console.error('Failed to mark all as read:', err);
     }
   }, []);
 
-  // Delete a message
   const deleteMessage = useCallback(async (messageId: string) => {
     try {
       await messageAPI.deleteMessage(messageId);
-      
-      // Refresh conversations after deleting
       await fetchConversations();
     } catch (err: any) {
       console.error('Failed to delete message:', err);
@@ -141,24 +103,58 @@ export function useMessaging() {
     }
   }, [fetchConversations]);
 
-  // Get a specific conversation
-  const getConversation = useCallback((partnerId: string) => {
-    return conversations.find(conv => conv.partnerId === partnerId);
-  }, [conversations]);
+  const getConversation = useCallback((partnerId: string) =>
+    conversations.find(conv => conv.partnerId === partnerId),
+    [conversations]
+  );
 
   // Initial load
   useEffect(() => {
     fetchConversations();
   }, [fetchConversations]);
 
-  // Poll for new messages every 30 seconds
+  // Real-time subscription — keyed only on the user ID (a stable primitive) so
+  // the channel is created exactly once per session and never rebuilt due to
+  // unrelated re-renders or useCallback reference changes.
+  const userId = user?.id ?? null;
+  useEffect(() => {
+    if (!userId) return;
+
+    // Unique suffix per effect run prevents "after subscribe()" errors when
+    // StrictMode double-invokes effects or multiple hook instances coexist.
+    const channel = supabase
+      .channel(`messages:${userId}:${Math.random().toString(36).slice(2)}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${userId}` },
+        () => { fetchRef.current(); }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'messages', filter: `sender_id=eq.${userId}` },
+        (payload) => {
+          const updated = payload.new as { id: string; read: boolean; read_at: string | null };
+          setConversations(prev =>
+            prev.map(conv => ({
+              ...conv,
+              messages: conv.messages.map(msg =>
+                msg.id === updated.id
+                  ? { ...msg, read: updated.read, readAt: updated.read_at }
+                  : msg
+              ),
+            }))
+          );
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+
+  // 60-second fallback poll in case the WebSocket connection drops
   useEffect(() => {
     if (!user) return;
-
-    const interval = setInterval(() => {
-      fetchUnreadCount();
-    }, 30000); // 30 seconds
-
+    const interval = setInterval(fetchUnreadCount, 60000);
     return () => clearInterval(interval);
   }, [user, fetchUnreadCount]);
 

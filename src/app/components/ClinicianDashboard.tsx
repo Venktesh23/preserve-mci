@@ -20,6 +20,8 @@ import ClinicianSettingsPage from './clinician/SettingsPage';
 import { useClinicianPatients } from '../hooks/useClinicianPatients';
 import { useMessaging } from '../hooks/useMessaging';
 
+const PlainLayout = ({ children }: { children: React.ReactNode }) => <>{children}</>;
+
 const ROUTES = {
   dashboard:  '/clinician',
   patients:   '/clinician/patients',
@@ -54,8 +56,6 @@ export default function ClinicianDashboard() {
     { label: 'Messages',    icon: MessageSquare, path: ROUTES.messages,  view: 'messages', badge: unreadCount },
   ];
 
-  const PlainLayout = ({ children }: { children: React.ReactNode }) => <>{children}</>;
-
   const renderContent = () => {
     if (currentView === 'patients' && patientIdFromPath) {
       return loading ? (
@@ -75,6 +75,7 @@ export default function ClinicianDashboard() {
             dashboardPath="/clinician"
             layoutComponent={PlainLayout}
             hint="To start a conversation, go to the patient profile."
+            embedded
           />
         );
       case 'settings':  return <ClinicianSettingsPage />;

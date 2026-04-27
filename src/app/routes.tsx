@@ -23,7 +23,6 @@ import CarePartnerMessagesCenter from "./components/care-partner/CarePartnerMess
 import ClinicianMessagesCenter from "./components/clinician/ClinicianMessagesCenter";
 import NotFound from "./components/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
-import CarePartnerSettingsPage from "./components/care-partner/SettingsPage";
 
 /**
  * Application routing configuration
@@ -104,14 +103,6 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "caregiver/settings",
-        element: (
-          <ProtectedRoute allowedRoles={['care_partner']}>
-            <CarePartnerSettingsPage />
-          </ProtectedRoute>
-        ),
-      },
-      {
         path: "patient/sleep-tips",
         element: (
           <ProtectedRoute allowedRoles={['patient']}>
@@ -123,15 +114,39 @@ export const router = createBrowserRouter([
       {
         path: "caregiver",
         element: (
-          <ProtectedRoute allowedRoles={['care_partner']}>
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
             <CarePartnerDashboard />
           </ProtectedRoute>
         ),
       },
       {
-        path: "caregiver/progress",
+        path: "caregiver/dashboard",
         element: (
-          <ProtectedRoute allowedRoles={['care_partner']}>
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "caregiver/patients",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "caregiver/patients/:patientId",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "caregiver/sleep-data",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
             <CarePartnerDashboard />
           </ProtectedRoute>
         ),
@@ -139,7 +154,15 @@ export const router = createBrowserRouter([
       {
         path: "caregiver/messages",
         element: (
-          <ProtectedRoute allowedRoles={['care_partner']}>
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "caregiver/resources",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
             <CarePartnerDashboard />
           </ProtectedRoute>
         ),
@@ -147,7 +170,96 @@ export const router = createBrowserRouter([
       {
         path: "caregiver/settings",
         element: (
-          <ProtectedRoute allowedRoles={['care_partner']}>
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "caregiver/*",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      // Legacy Care Partner routes (backward compatibility)
+      {
+        path: "care-partner",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/dashboard",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/patients",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/patients/:patientId",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/sleep-data",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/sleep-logs",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/messages",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/resources",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/settings",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
+            <CarePartnerDashboard />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "care-partner/*",
+        element: (
+          <ProtectedRoute allowedRoles={['care_partner', 'caregiver']}>
             <CarePartnerDashboard />
           </ProtectedRoute>
         ),

@@ -63,7 +63,7 @@ export default function PatientSleepLogs() {
         <div className="flex items-center space-x-4">
           <Button
             variant="ghost"
-            onClick={() => navigate('/care-partner/dashboard')}
+            onClick={() => navigate('/caregiver')}
             className="p-2 hover:bg-gray-100 rounded-xl"
           >
             <ChevronLeft className="w-6 h-6" />

@@ -6,7 +6,7 @@ import {
   LogOut,
   Home,
   BarChart3,
-  Send,
+  Users,
   BookOpen,
   Settings,
   Menu,
@@ -27,29 +27,43 @@ export default function CarePartnerLayout({ children }: CarePartnerLayoutProps) 
   const { unreadCount } = useMessaging();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const rawView = pathSegments[1] || 'dashboard';
+  const currentView = rawView === 'sleep-logs' ? 'sleep-data' : rawView;
+
   const userName = user?.name || 'Care Partner';
 
   const navigationItems = [
-    { 
-      label: 'Overview', 
-      icon: Home, 
-      path: '/care-partner/dashboard',
+    {
+      label: 'Dashboard',
+      icon: Home,
+      path: '/caregiver',
+      view: 'dashboard',
     },
-    { 
-      label: 'Sleep Logs', 
-      icon: BarChart3, 
-      path: '/care-partner/sleep-logs',
+    {
+      label: 'My Patients',
+      icon: Users,
+      path: '/caregiver/patients',
+      view: 'patients',
     },
-    { 
-      label: 'Messages', 
-      icon: MessageSquare, 
-      path: '/care-partner/messages',
+    {
+      label: 'Sleep Data',
+      icon: BarChart3,
+      path: '/caregiver/sleep-data',
+      view: 'sleep-data',
+    },
+    {
+      label: 'Messages',
+      icon: MessageSquare,
+      path: '/caregiver/messages',
+      view: 'messages',
       badge: unreadCount,
     },
-    { 
-      label: 'Resources', 
-      icon: BookOpen, 
-      path: '/care-partner/resources',
+    {
+      label: 'Resources',
+      icon: BookOpen,
+      path: '/caregiver/resources',
+      view: 'resources',
     },
   ];
 
@@ -126,7 +140,7 @@ export default function CarePartnerLayout({ children }: CarePartnerLayoutProps) 
           <nav className="p-4 space-y-2">
             {navigationItems.map((item) => {
               const Icon = item.icon;
-              const isActive = location.pathname === item.path;
+              const isActive = currentView === item.view;
               return (
                 <button
                   key={item.label}
@@ -162,7 +176,15 @@ export default function CarePartnerLayout({ children }: CarePartnerLayoutProps) 
 
           {/* Bottom Actions */}
           <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 space-y-2">
-            <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-all">
+            <button
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
+                currentView === 'settings' ? 'bg-teal-50 text-teal-700' : 'text-gray-600 hover:bg-gray-50'
+              }`}
+              onClick={() => {
+                navigate('/caregiver/settings');
+                setSidebarOpen(false);
+              }}
+            >
               <Settings className="w-6 h-6 flex-shrink-0" />
               <span
                 className={`text-base whitespace-nowrap ${

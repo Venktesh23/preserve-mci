@@ -55,6 +55,46 @@ CREATE POLICY IF NOT EXISTS "profiles: caregiver reads patient"
         )
     );
 
+-- Caregivers/care partners can discover patient profiles before linking
+CREATE POLICY IF NOT EXISTS "profiles: caregiver discover patients"
+    ON public.profiles FOR SELECT
+    USING (
+        role = 'patient'
+        AND EXISTS (
+            SELECT 1 FROM public.profiles me
+            WHERE me.id = auth.uid()
+              AND me.role IN ('caregiver', 'care_partner')
+        )
+    );
+
+-- Clinicians can discover patient profiles before assignment
+CREATE POLICY IF NOT EXISTS "profiles: clinician discover patients"
+    ON public.profiles FOR SELECT
+    USING (
+        role = 'patient'
+        AND EXISTS (
+            SELECT 1 FROM public.profiles me
+            WHERE me.id = auth.uid()
+              AND me.role = 'clinician'
+        )
+    );
+
+-- Patients can read profiles of assigned care team members (for messaging labels)
+CREATE POLICY IF NOT EXISTS "profiles: patient reads assigned care team"
+    ON public.profiles FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.clinician_patients cp
+            WHERE cp.patient_id = auth.uid()
+              AND cp.clinician_id = profiles.id
+        )
+        OR EXISTS (
+            SELECT 1 FROM public.caregiver_patients cvp
+            WHERE cvp.patient_id = auth.uid()
+              AND cvp.caregiver_id = profiles.id
+        )
+    );
+
 
 -- ── 2. clinician_patients ──────────────────────────────────
 -- Links a clinician to each patient they manage.
@@ -92,12 +132,17 @@ CREATE POLICY IF NOT EXISTS "clinician_patients: clinician delete"
 
 -- ── 3. caregiver_patients ──────────────────────────────────
 CREATE TABLE IF NOT EXISTS public.caregiver_patients (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    caregiver_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    patient_id   UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    assigned_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    caregiver_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    patient_id        UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    relationship_type TEXT NOT NULL DEFAULT 'family member',
+    assigned_at       TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE (caregiver_id, patient_id)
 );
+
+-- Migration: add relationship_type if the table already exists without it
+ALTER TABLE public.caregiver_patients
+    ADD COLUMN IF NOT EXISTS relationship_type TEXT NOT NULL DEFAULT 'family member';
 
 ALTER TABLE public.caregiver_patients ENABLE ROW LEVEL SECURITY;
 
@@ -116,6 +161,49 @@ CREATE POLICY IF NOT EXISTS "caregiver_patients: caregiver update"
 CREATE POLICY IF NOT EXISTS "caregiver_patients: caregiver delete"
     ON public.caregiver_patients FOR DELETE
     USING (auth.uid() = caregiver_id);
+
+-- Patients can read their own caregiver assignments.
+-- Required so the "profiles: patient reads assigned care team" policy works —
+-- its subquery on caregiver_patients would otherwise return empty due to RLS.
+DROP POLICY IF EXISTS "caregiver_patients: patient reads own" ON public.caregiver_patients;
+CREATE POLICY "caregiver_patients: patient reads own"
+    ON public.caregiver_patients FOR SELECT
+    USING (auth.uid() = patient_id);
+
+-- Clinicians can read caregiver assignments for their own patients
+-- (so the patient list can display which care partner is linked).
+DROP POLICY IF EXISTS "caregiver_patients: clinician reads for patient" ON public.caregiver_patients;
+CREATE POLICY "caregiver_patients: clinician reads for patient"
+    ON public.caregiver_patients FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.clinician_patients cp
+            WHERE cp.clinician_id = auth.uid()
+              AND cp.patient_id = caregiver_patients.patient_id
+        )
+    );
+
+
+-- Patients can read their own clinician assignments.
+-- Required so the "profiles: patient reads assigned care team" policy works —
+-- its subquery on clinician_patients would otherwise return empty due to RLS.
+DROP POLICY IF EXISTS "clinician_patients: patient reads own" ON public.clinician_patients;
+CREATE POLICY "clinician_patients: patient reads own"
+    ON public.clinician_patients FOR SELECT
+    USING (auth.uid() = patient_id);
+
+-- Caregivers can read clinician assignments for their own patients
+-- (so patient-detail pages can show which clinician is assigned).
+DROP POLICY IF EXISTS "clinician_patients: caregiver reads for patient" ON public.clinician_patients;
+CREATE POLICY "clinician_patients: caregiver reads for patient"
+    ON public.clinician_patients FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.caregiver_patients cvp
+            WHERE cvp.caregiver_id = auth.uid()
+              AND cvp.patient_id = clinician_patients.patient_id
+        )
+    );
 
 
 -- ── 4. clinician_notes ─────────────────────────────────────
@@ -240,6 +328,33 @@ CREATE POLICY IF NOT EXISTS "messages: sender or recipient delete"
     USING (auth.uid() = sender_id OR auth.uid() = recipient_id);
 
 
+-- ── 6b. messages — real-time & indexes ────────────────────
+-- Enable Supabase real-time replication for instant cross-user updates.
+-- Without this, new messages only appear after a page reload.
+ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+
+-- FULL replica identity ensures all row columns are present in the WAL event
+-- for both INSERT and UPDATE. Required for real-time row-level filters on
+-- non-PK columns (sender_id, recipient_id) to work reliably on UPDATE events.
+ALTER TABLE public.messages REPLICA IDENTITY FULL;
+
+-- Index for the per-user inbox/outbox queries used by getConversations()
+CREATE INDEX IF NOT EXISTS messages_recipient_id_created_at_idx
+    ON public.messages (recipient_id, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS messages_sender_id_created_at_idx
+    ON public.messages (sender_id, created_at DESC);
+
+-- Composite index for the per-conversation thread query used by getConversation()
+CREATE INDEX IF NOT EXISTS messages_conversation_pair_idx
+    ON public.messages (sender_id, recipient_id, created_at ASC);
+
+-- Fast unread count lookup
+CREATE INDEX IF NOT EXISTS messages_unread_recipient_idx
+    ON public.messages (recipient_id, read)
+    WHERE read = false;
+
+
 -- ── 7. app_data ────────────────────────────────────────────
 -- Generic key-value store for per-user app preferences and data.
 CREATE TABLE IF NOT EXISTS public.app_data (
@@ -256,3 +371,22 @@ CREATE POLICY IF NOT EXISTS "app_data: own"
     ON public.app_data FOR ALL
     USING (auth.uid() = user_id)
     WITH CHECK (auth.uid() = user_id);
+
+-- Caregivers and clinicians can read assigned patients' module progress only.
+CREATE POLICY IF NOT EXISTS "app_data: caregiver/clinician reads module progress"
+    ON public.app_data FOR SELECT
+    USING (
+        data_key = 'modules_progress_v1'
+        AND (
+            EXISTS (
+                SELECT 1 FROM public.caregiver_patients cvp
+                WHERE cvp.caregiver_id = auth.uid()
+                  AND cvp.patient_id   = app_data.user_id
+            )
+            OR EXISTS (
+                SELECT 1 FROM public.clinician_patients cp
+                WHERE cp.clinician_id = auth.uid()
+                  AND cp.patient_id   = app_data.user_id
+            )
+        )
+    );

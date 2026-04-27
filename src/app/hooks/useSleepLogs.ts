@@ -49,7 +49,7 @@ async function syncAddToSupabase(log: SleepLogData) {
       hours_slept: log.hoursSlept,
       sleep_quality: log.sleepQuality,
       notes: log.notes ?? '',
-    }, { onConflict: 'local_id' });
+    }, { onConflict: 'user_id,local_id' });
   } catch (e) {
     console.warn('sleep_logs sync failed:', e);
   }

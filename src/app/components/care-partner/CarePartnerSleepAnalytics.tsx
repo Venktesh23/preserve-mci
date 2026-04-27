@@ -149,7 +149,7 @@ export default function CarePartnerSleepAnalytics() {
         title: `Sleep duration needs support`,
         message: `${firstName} is averaging ${avg} hours, below the 7-hour target. Consider encouraging a consistent wind-down routine each evening.`,
         action: 'Send encouragement',
-        actionUrl: '/care-partner/messages',
+        actionUrl: '/caregiver/messages',
       });
     }
 
@@ -182,7 +182,7 @@ export default function CarePartnerSleepAnalytics() {
         title: 'Sleep quality needs attention',
         message: `${firstName}'s sleep quality average is ${(quality * 20).toFixed(0)}%. Relaxation exercises from the program (like Progressive Muscle Relaxation) may help — encourage them to try.`,
         action: 'Send a tip',
-        actionUrl: '/care-partner/messages',
+        actionUrl: '/caregiver/messages',
       });
     }
 
@@ -198,7 +198,7 @@ export default function CarePartnerSleepAnalytics() {
         title: 'Logging streak broken',
         message: `${firstName} missed a recent sleep log. A gentle reminder can help get back on track.`,
         action: 'Send a reminder',
-        actionUrl: '/care-partner/messages',
+        actionUrl: '/caregiver/messages',
       });
     }
 
@@ -214,7 +214,7 @@ export default function CarePartnerSleepAnalytics() {
         title: 'Sleep has declined this week',
         message: `${firstName}'s sleep hours dipped compared to last week. This can happen during stressful periods — checking in now is a good idea.`,
         action: 'Check in',
-        actionUrl: '/care-partner/messages',
+        actionUrl: '/caregiver/messages',
       });
     }
 
@@ -247,7 +247,7 @@ export default function CarePartnerSleepAnalytics() {
       <div className="flex items-center space-x-4">
         <Button
           variant="ghost"
-          onClick={() => navigate('/care-partner/dashboard')}
+          onClick={() => navigate('/caregiver')}
           className="p-2 hover:bg-gray-100 rounded-xl"
         >
           <ChevronLeft className="w-6 h-6" />

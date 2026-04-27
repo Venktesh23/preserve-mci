@@ -1,143 +1,174 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router';
 import {
-  Heart,
-  Bell,
-  LogOut,
   Home,
-  BarChart3,
-  BookOpen,
-  Settings,
+  MessageCircle,
   Menu,
   X,
-  MessageSquare,
-  TrendingUp,
+  LogOut,
+  Settings,
+  Users,
+  BarChart2,
+  BookOpen,
 } from 'lucide-react';
 import { useAuth } from '../contexts/useAuth';
-import PatientOverview from './care-partner/PatientOverview';
-import PatientSleepLogs from './care-partner/PatientSleepLogs';
-import CarePartnerSleepAnalytics from './care-partner/CarePartnerSleepAnalytics';
-import CarePartnerProgress from './care-partner/CarePartnerProgress';
+import CaregiverOverview from './care-partner/CaregiverOverview';
+import CaregiverPatients from './care-partner/CaregiverPatients';
+import CaregiverPatientDetail from './care-partner/CaregiverPatientDetail';
+import CaregiverSleepData from './care-partner/CaregiverSleepData';
 import CareResources from './care-partner/CareResources';
-import CarePartnerMessagesCenter from './care-partner/CarePartnerMessagesCenter';
-import CarePartnerSettingsPage from './care-partner/SettingsPage';
+import CaregiverSettingsPage from './care-partner/SettingsPage';
+import MessagesCenter from './MessagesCenter';
+import { useMessaging } from '../hooks/useMessaging';
+import { useCaregiverPatients } from '../hooks/useCaregiverPatients';
+
+const PlainLayout = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
 const ROUTES = {
-  dashboard: '/care-partner/dashboard',
-  sleepLogs: '/care-partner/sleep-logs',
-  analytics: '/care-partner/sleep-analytics',
-  progress: '/care-partner/progress',
-  resources: '/care-partner/resources',
-  messages: '/care-partner/messages',
-  settings: '/care-partner/settings',
+  dashboard: '/caregiver',
+  patients:  '/caregiver/patients',
+  sleepData: '/caregiver/sleep-data',
+  messages:  '/caregiver/messages',
+  resources: '/caregiver/resources',
+  settings:  '/caregiver/settings',
 } as const;
-
-const navItems = [
-  { label: 'Overview',       icon: Home,         path: ROUTES.dashboard,  view: 'dashboard'  },
-  { label: 'Sleep Logs',     icon: BarChart3,     path: ROUTES.sleepLogs,  view: 'sleep-logs' },
-  { label: 'Analytics',      icon: TrendingUp,    path: ROUTES.analytics,  view: 'sleep-analytics' },
-  { label: 'Progress',       icon: BookOpen,      path: ROUTES.progress,   view: 'progress'   },
-  { label: 'Resources',      icon: BookOpen,      path: ROUTES.resources,  view: 'resources'  },
-  { label: 'Messages',       icon: MessageSquare, path: ROUTES.messages,   view: 'messages'   },
-];
 
 export default function CarePartnerDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signout } = useAuth();
+  const { signout } = useAuth();
+  const { unreadCount } = useMessaging();
+  const { loading } = useCaregiverPatients();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarHovered, setSidebarHovered] = useState(false);
+  const [manualView, setManualView] = useState<string | null>(null);
 
   const handleSignOut = async () => {
     await signout();
     navigate('/');
   };
 
-  const currentView = location.pathname.split('/')[2] || 'dashboard';
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const rawView = pathSegments[1] || 'dashboard';
+  const viewAliases: Record<string, string> = {
+    'sleep-logs': 'sleep-data',
+    'sleep-analytics': 'sleep-data',
+    analytics: 'sleep-data',
+    progress: 'patients',
+  };
+  const pathView = viewAliases[rawView] || rawView;
+  const currentView = manualView || pathView;
+  const patientIdFromPath =
+    pathView === 'patients' && pathSegments[2] ? pathSegments[2] : null;
+
+  useEffect(() => {
+    setManualView(null);
+  }, [location.pathname]);
+
+  const navItems = [
+    { label: 'Dashboard',   icon: Home,          path: ROUTES.dashboard, view: 'dashboard' },
+    { label: 'My Patients', icon: Users,         path: ROUTES.patients,  view: 'patients'  },
+    { label: 'Sleep Data',  icon: BarChart2,     path: ROUTES.sleepData, view: 'sleep-data' },
+    { label: 'Messages',    icon: MessageCircle, path: ROUTES.messages,  view: 'messages',  badge: unreadCount },
+    { label: 'Resources',   icon: BookOpen,      path: ROUTES.resources, view: 'resources' },
+  ];
 
   const renderContent = () => {
+    if (currentView === 'patients' && patientIdFromPath) {
+      return loading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="w-6 h-6 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : (
+        <CaregiverPatientDetail patientId={patientIdFromPath} />
+      );
+    }
     switch (currentView) {
-      case 'sleep-logs':    return <PatientSleepLogs />;
-      case 'sleep-analytics': return <CarePartnerSleepAnalytics />;
-      case 'progress':      return <CarePartnerProgress />;
-      case 'resources':     return <CareResources />;
-      case 'messages':      return <CarePartnerMessagesCenter />;
-      case 'settings':      return <CarePartnerSettingsPage />;
-      default:              return <PatientOverview />;
+      case 'patients':   return <CaregiverPatients />;
+      case 'sleep-data': return <CaregiverSleepData />;
+      case 'messages':
+        return (
+          <MessagesCenter
+            dashboardPath="/caregiver"
+            layoutComponent={PlainLayout}
+            hint="To start a conversation, go to the patient profile."
+            embedded
+          />
+        );
+      case 'resources':  return <CareResources />;
+      case 'settings':   return <CaregiverSettingsPage />;
+      default:           return <CaregiverOverview />;
     }
   };
 
-  const initials = user?.name
-    ? user.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase()
-    : 'CP';
+  const showSidebarLabels = sidebarOpen || sidebarHovered;
+  const token = {
+    white: '#FFFFFF',
+    purple100: '#F3E9FB',
+    sidebarInactive: '#888780',
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Top Navigation Bar */}
-      <nav className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            {/* Logo */}
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => setSidebarOpen(!sidebarOpen)}
-                className="lg:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
-                aria-label="Toggle menu"
-              >
-                {sidebarOpen ? <X className="w-6 h-6 text-gray-600" /> : <Menu className="w-6 h-6 text-gray-600" />}
-              </button>
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center">
-                  <Heart className="w-6 h-6 text-white" />
-                </div>
-                <div className="hidden sm:block">
-                  <h1 className="text-xl" style={{ color: '#1f1f3d' }}>Sleep Intervention</h1>
-                  <p className="text-sm text-gray-500">Care Partner Portal</p>
-                </div>
-              </div>
-            </div>
+    <div className="min-h-screen overflow-x-hidden" style={{ backgroundColor: '#F9FAFB' }}>
+      <button
+        onClick={() => setSidebarOpen(!sidebarOpen)}
+        className="fixed top-4 left-4 z-40 lg:hidden p-2.5 rounded-lg transition-all duration-200 hover:bg-[#F3E8FF] hover:shadow-sm active:scale-95"
+        style={{ backgroundColor: token.white, border: `0.5px solid ${token.purple100}` }}
+        aria-label="Toggle menu"
+      >
+        {sidebarOpen ? (
+          <X size={18} strokeWidth={1.5} color="#6B7280" />
+        ) : (
+          <Menu size={18} strokeWidth={1.5} color="#6B7280" />
+        )}
+      </button>
 
-            {/* Right side */}
-            <div className="flex items-center space-x-3">
-              <button className="relative p-2 rounded-xl hover:bg-gray-100 transition-colors">
-                <Bell className="w-6 h-6 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-teal-500 rounded-full" />
-              </button>
-              <div className="hidden md:flex items-center space-x-3 pl-4 border-l border-gray-200">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center">
-                  <span className="text-white font-medium">{initials}</span>
-                </div>
-                <div>
-                  <p className="text-sm" style={{ color: '#1f1f3d' }}>{user?.name || 'Care Partner'}</p>
-                  <p className="text-xs text-gray-500">Care Partner</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      <div className="flex">
-        {/* Sidebar */}
+      <div className="flex min-h-screen">
         <aside
-          className={`fixed lg:sticky top-20 left-0 h-[calc(100vh-5rem)] bg-white border-r border-gray-200 transition-all duration-300 z-30 flex flex-col ${
-            sidebarOpen ? 'w-64' : 'w-0 lg:w-20'
-          } overflow-hidden`}
+          onMouseEnter={() => setSidebarHovered(true)}
+          onMouseLeave={() => setSidebarHovered(false)}
+          className={`group fixed top-0 left-0 h-screen flex flex-col transition-all duration-300 z-30 w-72 ${
+            sidebarHovered ? 'lg:w-72' : 'lg:w-24'
+          } ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}`}
+          style={{ backgroundColor: token.white, borderRight: `0.5px solid ${token.purple100}` }}
         >
-          <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+          <div className={`px-4 pb-2 ${showSidebarLabels ? 'block' : 'hidden'}`} />
+          <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentView === item.view;
               return (
                 <button
                   key={item.label}
-                  onClick={() => { navigate(item.path); setSidebarOpen(false); }}
+                  onClick={() => {
+                    setManualView(item.view);
+                    navigate(item.path);
+                    setSidebarOpen(false);
+                  }}
                   title={item.label}
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
-                    isActive ? 'bg-teal-50 text-teal-700' : 'text-gray-600 hover:bg-gray-50'
+                  className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${
+                    showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'
                   }`}
+                  style={{
+                    fontSize: '15px',
+                    fontWeight: 400,
+                    color: isActive ? '#6D28D9' : token.sidebarInactive,
+                    borderLeft: isActive ? '2px solid #6D28D9' : '2px solid transparent',
+                  }}
                 >
-                  <Icon className="w-6 h-6 flex-shrink-0" />
-                  <span className={`text-base whitespace-nowrap ${sidebarOpen ? 'opacity-100' : 'lg:opacity-0'}`}>
+                  <div className="relative flex-shrink-0">
+                    <Icon size={18} strokeWidth={1.5} color={isActive ? '#6D28D9' : '#6B7280'} />
+                    {'badge' in item && item.badge != null && item.badge > 0 && (
+                      <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 bg-[#6D28D9] rounded-full flex items-center justify-center text-[9px] text-white font-bold">
+                        {item.badge > 9 ? '9+' : item.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span
+                    className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                      showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
+                    }`}
+                  >
                     {item.label}
                   </span>
                 </button>
@@ -145,43 +176,68 @@ export default function CarePartnerDashboard() {
             })}
           </nav>
 
-          {/* Bottom actions */}
-          <div className="p-4 border-t border-gray-200 space-y-1">
+          <div
+            className="mt-auto p-4 space-y-2 shrink-0"
+            style={{ borderTop: `0.5px solid ${token.purple100}` }}
+          >
             <button
-              onClick={() => { navigate(ROUTES.settings); setSidebarOpen(false); }}
+              onClick={() => {
+                setManualView('settings');
+                navigate(ROUTES.settings);
+                setSidebarOpen(false);
+              }}
               title="Settings"
-              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-all ${
-                currentView === 'settings' ? 'bg-teal-50 text-teal-700' : 'text-gray-600 hover:bg-gray-50'
+              className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${
+                showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'
               }`}
+              style={{
+                fontSize: '15px',
+                color: currentView === 'settings' ? '#6D28D9' : token.sidebarInactive,
+                borderLeft: currentView === 'settings' ? '2px solid #6D28D9' : '2px solid transparent',
+              }}
             >
-              <Settings className="w-6 h-6 flex-shrink-0" />
-              <span className={`text-base whitespace-nowrap ${sidebarOpen ? 'opacity-100' : 'lg:opacity-0'}`}>
+              <Settings
+                size={18}
+                strokeWidth={1.5}
+                color={currentView === 'settings' ? '#6D28D9' : '#6B7280'}
+                className="flex-shrink-0"
+              />
+              <span
+                className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                  showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
+                }`}
+              >
                 Settings
               </span>
             </button>
             <button
               onClick={handleSignOut}
               title="Sign Out"
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-600 hover:bg-gray-50 transition-all"
+              className={`w-full flex items-center py-3 rounded-xl transition-all duration-200 hover:bg-[#F3E8FF] hover:translate-x-0.5 ${
+                showSidebarLabels ? 'justify-start space-x-3 px-4' : 'justify-center px-2'
+              }`}
+              style={{ fontSize: '15px', color: token.sidebarInactive }}
             >
-              <LogOut className="w-6 h-6 flex-shrink-0" />
-              <span className={`text-base whitespace-nowrap ${sidebarOpen ? 'opacity-100' : 'lg:opacity-0'}`}>
+              <LogOut size={18} strokeWidth={1.5} color="#6B7280" className="flex-shrink-0" />
+              <span
+                className={`whitespace-nowrap overflow-hidden transition-all duration-200 ${
+                  showSidebarLabels ? 'max-w-[160px] opacity-100' : 'max-w-0 opacity-0'
+                }`}
+              >
                 Sign Out
               </span>
             </button>
           </div>
         </aside>
 
-        {/* Main Content */}
-        <main className="flex-1 p-6 lg:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex-1 lg:pl-24 p-6 lg:p-8 max-w-7xl mx-auto w-full">
           {renderContent()}
         </main>
       </div>
 
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
+          className="fixed inset-0 bg-black/25 z-20 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 
-type UserRole = 'patient' | 'care_partner' | 'clinician';
+type UserRole = 'patient' | 'care_partner' | 'caregiver' | 'clinician';
 
 type AppUser = {
   id: string;

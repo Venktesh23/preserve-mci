@@ -4,7 +4,7 @@ import CarePartnerLayout from './CarePartnerLayout';
 export default function CarePartnerMessagesCenter() {
   return (
     <MessagesCenter
-      dashboardPath="/care-partner/dashboard"
+      dashboardPath="/caregiver"
       layoutComponent={CarePartnerLayout}
     />
   );

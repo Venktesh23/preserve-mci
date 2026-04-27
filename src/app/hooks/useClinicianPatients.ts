@@ -11,6 +11,9 @@ export interface ClinicianPatient {
   carePartnerName?: string;
   riskLevel: 'low' | 'medium' | 'high';
   notes?: string;
+  avgSleepHours?: number;
+  avgSleepQuality?: number;
+  sleepLogsCount: number;
 }
 
 export interface ClinicianNote {
@@ -104,22 +107,38 @@ export function useClinicianPatients() {
         (caregiverLinks ?? []).map((c) => [c.patient_id, caregiverProfileMap.get(c.caregiver_id)])
       );
 
-      // Fetch average sleep quality per patient
-      const { data: sleepData } = await supabase
+      // Fetch sleep data (hours + quality) per patient
+      const { data: sleepRows } = await supabase
         .from('sleep_logs')
-        .select('user_id, sleep_quality')
+        .select('user_id, sleep_quality, hours_slept')
         .in('user_id', patientIds);
 
+      const sleepDataMap = new Map<string, { hours: number[]; quality: number[] }>();
+      for (const row of sleepRows ?? []) {
+        if (!sleepDataMap.has(row.user_id)) sleepDataMap.set(row.user_id, { hours: [], quality: [] });
+        sleepDataMap.get(row.user_id)!.hours.push(row.hours_slept);
+        sleepDataMap.get(row.user_id)!.quality.push(row.sleep_quality);
+      }
+
+      // Build quality-only map for overall stats computation
       const sleepQualityMap = new Map<string, number[]>();
-      for (const row of sleepData ?? []) {
-        if (!sleepQualityMap.has(row.user_id)) sleepQualityMap.set(row.user_id, []);
-        sleepQualityMap.get(row.user_id)!.push(row.sleep_quality);
+      for (const [uid, data] of sleepDataMap) {
+        sleepQualityMap.set(uid, data.quality);
       }
 
       const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
       const mapped: ClinicianPatient[] = assignments.map((a) => {
         const profile = profileMap.get(a.patient_id);
+        const patientSleep = sleepDataMap.get(a.patient_id);
+        const avgSleepHours =
+          patientSleep && patientSleep.hours.length > 0
+            ? patientSleep.hours.reduce((s, h) => s + h, 0) / patientSleep.hours.length
+            : undefined;
+        const avgSleepQuality =
+          patientSleep && patientSleep.quality.length > 0
+            ? patientSleep.quality.reduce((s, q) => s + q, 0) / patientSleep.quality.length
+            : undefined;
         return {
           id: a.patient_id,
           name: profile?.full_name || 'Unknown Patient',
@@ -130,11 +149,13 @@ export function useClinicianPatients() {
           riskLevel: (a.risk_level as 'low' | 'medium' | 'high') ?? 'medium',
           notes: a.notes ?? undefined,
           carePartnerName: patientCaregiverMap.get(a.patient_id) ?? undefined,
+          avgSleepHours,
+          avgSleepQuality,
+          sleepLogsCount: patientSleep?.hours.length ?? 0,
         };
       });
 
       setPatients(mapped);
-      // Store sleep quality map for stats
       setSleepQualityMap(sleepQualityMap);
     } catch (e) {
       console.error('Failed to fetch patients:', e);
@@ -181,7 +202,14 @@ export function useClinicianPatients() {
         risk_level: patientData.riskLevel ?? 'medium',
       });
 
-      if (error) throw error;
+      if (error) {
+        // Already assigned: keep state fresh and treat as idempotent.
+        if ((error as { code?: string }).code === '23505') {
+          await fetchPatients();
+          return patientData;
+        }
+        throw error;
+      }
 
       await fetchPatients();
       return patientData;
@@ -319,31 +347,37 @@ export function useClinicianPatients() {
   );
 
   const searchUnassignedPatients = useCallback(async (query: string) => {
-    if (!query.trim()) return [];
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, role')
-        .eq('role', 'patient')
-        .ilike('full_name', `%${query}%`)
-        .limit(10);
+    const trimmed = query.trim();
+    if (!trimmed) return [];
 
-      if (error) throw error;
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) throw new Error('Not authenticated');
 
-      return (data ?? []).map((p) => ({
+    const sanitized = trimmed.replace(/[,%]/g, '');
+    const assignedIds = new Set(patients.map((p) => p.id));
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, age, last_active')
+      .eq('role', 'patient')
+      .or(`full_name.ilike.%${sanitized}%,email.ilike.%${sanitized}%`)
+      .limit(20);
+
+    if (error) throw error;
+
+    return (data ?? [])
+      .filter((p) => !assignedIds.has(p.id))
+      .map((p) => ({
         id: p.id,
         name: p.full_name,
         email: p.email,
-        age: 0,
+        age: p.age ?? 0,
         dateEnrolled: new Date().toISOString(),
-        lastActive: new Date().toISOString(),
+        lastActive: p.last_active ?? new Date().toISOString(),
         riskLevel: 'low' as const,
+        sleepLogsCount: 0,
       }));
-    } catch (e) {
-      console.error('Error searching unassigned patients:', e);
-      return [];
-    }
-  }, []);
+  }, [patients]);
 
   return {
     patients,

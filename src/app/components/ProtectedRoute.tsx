@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
   children: ReactNode;
-  allowedRoles?: Array<'patient' | 'care_partner' | 'clinician'>;
+  allowedRoles?: Array<'patient' | 'care_partner' | 'caregiver' | 'clinician'>;
   redirectTo?: string;
 }
 
@@ -43,6 +43,7 @@ export default function ProtectedRoute({
     const dashboardMap: Record<string, string> = {
       patient: '/patient/dashboard',
       care_partner: '/caregiver',
+      caregiver: '/caregiver',
       clinician: '/clinician',
     };
     
