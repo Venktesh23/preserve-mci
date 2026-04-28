@@ -86,35 +86,48 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
 
     const bedtimeMinutes = timeToMinutes(bedtime);
     const wakeTimeMinutes = timeToMinutes(waketime);
-    const sleepOnsetLatency = timeToFallAsleep ? Number(timeToFallAsleep) : null;
-    const awakeDuringNight = timeAwakeDuringNight ? Number(timeAwakeDuringNight) : null;
+    const oobMinutes = timeToMinutes(timeOutOfBed);
+    const sleepOnsetLatency = timeToFallAsleep ? Number(timeToFallAsleep) : null;   // SOL
+    const awakeDuringNight = timeAwakeDuringNight ? Number(timeAwakeDuringNight) : null; // WASO
 
-    let timeInBed: number | null = null;
+    // EMA = minutes from wake time to actually getting out of bed
+    let ema: number | null = null;
+    if (wakeTimeMinutes != null && oobMinutes != null) {
+      const diff = oobMinutes >= wakeTimeMinutes
+        ? oobMinutes - wakeTimeMinutes
+        : (oobMinutes + 1440) - wakeTimeMinutes;
+      if (diff >= 0 && diff <= 180) ema = diff;
+    }
+
+    // Raw bed-to-wake span (handles midnight wrap)
+    let bedToWake: number | null = null;
     if (bedtimeMinutes != null && wakeTimeMinutes != null) {
-      timeInBed = wakeTimeMinutes < bedtimeMinutes
+      bedToWake = wakeTimeMinutes < bedtimeMinutes
         ? (wakeTimeMinutes + 1440) - bedtimeMinutes
         : wakeTimeMinutes - bedtimeMinutes;
     }
 
+    // TIB = (waketime − bedtime) + EMA  (bedtime → out-of-bed)
+    const timeInBed = bedToWake != null ? bedToWake + (ema ?? 0) : null;
+
+    // TST = (waketime − bedtime) − SOL − WASO
     let totalSleepMinutes: number | null = null;
-    if (
-      timeInBed != null &&
-      sleepOnsetLatency != null &&
-      awakeDuringNight != null
-    ) {
-      const computed = timeInBed - (sleepOnsetLatency + awakeDuringNight);
-      if (Number.isFinite(computed) && computed >= 0) {
-        totalSleepMinutes = computed;
-      }
+    if (bedToWake != null && sleepOnsetLatency != null && awakeDuringNight != null) {
+      const computed = bedToWake - sleepOnsetLatency - awakeDuringNight;
+      if (Number.isFinite(computed) && computed >= 0) totalSleepMinutes = computed;
     }
 
+    // Sleep Efficiency = TST / TIB × 100
     let sleepEfficiency: number | null = null;
     if (timeInBed != null && timeInBed > 0 && totalSleepMinutes != null) {
-      const efficiency = Math.round((totalSleepMinutes / timeInBed) * 100);
-      sleepEfficiency = Math.max(0, Math.min(100, efficiency));
+      sleepEfficiency = Math.max(0, Math.min(100, Math.round((totalSleepMinutes / timeInBed) * 100)));
     }
 
-    const totalWakeMinutes = awakeDuringNight;
+    // TWT = SOL + WASO + EMA
+    const hasTWT = sleepOnsetLatency != null || awakeDuringNight != null || ema != null;
+    const totalWakeMinutes = hasTWT
+      ? (sleepOnsetLatency ?? 0) + (awakeDuringNight ?? 0) + (ema ?? 0)
+      : null;
 
     const computedHoursSlept = totalSleepMinutes != null
       ? Math.round(((totalSleepMinutes / 60) * 10)) / 10
@@ -135,7 +148,7 @@ export default function SleepLogModal({ isOpen, onClose, onSubmit }: SleepLogMod
       timeAwakeDuringNight: awakeDuringNight ?? undefined,
       totalSleepMinutes,
       sleepEfficiency,
-      totalWakeMinutes: totalWakeMinutes ?? undefined,
+      totalWakeMinutes: totalWakeMinutes != null ? totalWakeMinutes : undefined,
     });
 
     toast.success('Sleep logged successfully', {

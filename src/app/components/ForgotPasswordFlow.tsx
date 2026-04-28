@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Moon, ArrowLeft, Mail, KeyRound, CheckCircle2 } from 'lucide-react';
+import { Moon, ArrowLeft, Mail, KeyRound, CheckCircle2, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { Input } from './ui/input';
 import { Label } from './ui/label';

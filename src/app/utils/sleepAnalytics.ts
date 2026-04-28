@@ -150,15 +150,15 @@ export function generateInsights(logs: SleepLog[], stats: Partial<SleepAnalytics
     });
   }
 
-  // Insight: Sleep quality
-  if (stats.averageQuality && stats.averageQuality >= 4) {
+  // Insight: Sleep quality (scale 1-10)
+  if (stats.averageQuality && stats.averageQuality >= 8) {
     insights.push({
       type: 'positive',
       title: 'Excellent Sleep Quality',
       description: 'Your sleep quality ratings are consistently high.',
       recommendation: 'Continue your current sleep routine and hygiene practices.',
     });
-  } else if (stats.averageQuality && stats.averageQuality < 3) {
+  } else if (stats.averageQuality && stats.averageQuality < 5) {
     insights.push({
       type: 'warning',
       title: 'Low Sleep Quality',

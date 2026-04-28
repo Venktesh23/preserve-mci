@@ -289,13 +289,14 @@ export default function RegistrationPage() {
         console.warn('Registration profile persistence skipped:', persistError);
       }
 
-      const dashboardMap = {
+      const dashboardMap: Record<string, string> = {
         patient: '/patient/dashboard',
         care_partner: '/caregiver',
+        caregiver: '/caregiver',
         clinician: '/clinician',
-      } as const;
+      };
 
-      navigate(dashboardMap[createdUser.role]);
+      navigate(dashboardMap[createdUser.role] ?? '/');
     } catch (error: any) {
       const message = (error?.message || 'Failed to create account. Please try again.').trim();
 

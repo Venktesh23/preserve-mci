@@ -109,11 +109,11 @@ export default function MyProgress() {
     }
 
     // Quality sleep
-    if (sleepStats.averageQuality >= 4) {
+    if (sleepStats.averageQuality >= 8) {
       earned.push({
         id: 'quality-sleep',
         name: 'Quality Rest',
-        description: 'Average sleep quality of 4+',
+        description: 'Average sleep quality of 8+',
         icon: Star,
         color: 'teal',
         unlocked: true,
@@ -459,7 +459,7 @@ export default function MyProgress() {
                           <Star
                             key={star}
                             className={`w-4 h-4 ${
-                              star <= week.avgQuality
+                              star <= Math.round(week.avgQuality / 2)
                                 ? 'text-amber-500 fill-amber-500'
                                 : 'text-gray-300'
                             }`}

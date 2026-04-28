@@ -90,13 +90,14 @@ export default function AuthPage() {
         localStorage.removeItem('remembered_email');
       }
 
-      const dashboardMap = {
+      const dashboardMap: Record<string, string> = {
         patient: '/patient/dashboard',
         care_partner: '/caregiver',
+        caregiver: '/caregiver',
         clinician: '/clinician',
-      } as const;
+      };
 
-      navigate(dashboardMap[signedInUser.role]);
+      navigate(dashboardMap[signedInUser.role] ?? '/');
     } catch (error: any) {
       const message = (error?.message || 'Sign in failed. Please try again.').trim();
 

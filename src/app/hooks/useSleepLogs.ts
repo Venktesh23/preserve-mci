@@ -199,7 +199,7 @@ export function useSleepLogs() {
           hours: log ? Number(log.hoursSlept.toFixed(1)) : 0,
           sleepEfficiency: log?.sleepEfficiency ?? null,
           totalWakeMinutes: log?.totalWakeMinutes ?? null,
-          hasData: !!log && typeof log.totalSleepMinutes === 'number',
+          hasData: !!log && log.hoursSlept > 0,
         };
       });
     },

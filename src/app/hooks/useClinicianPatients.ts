@@ -11,6 +11,7 @@ export interface ClinicianPatient {
   carePartnerName?: string;
   riskLevel: 'low' | 'medium' | 'high';
   notes?: string;
+  prescribedSleepHours?: number;
   avgSleepHours?: number;
   avgSleepQuality?: number;
   sleepLogsCount: number;
@@ -71,7 +72,7 @@ export function useClinicianPatients() {
       // Fetch all active assignments for this clinician
       const { data: assignments, error: assignError } = await supabase
         .from('clinician_patients')
-        .select('patient_id, assigned_at, status, risk_level, notes')
+        .select('patient_id, assigned_at, status, risk_level, notes, prescribed_sleep_hours')
         .eq('clinician_id', userData.user.id)
         .eq('status', 'active');
 
@@ -148,6 +149,7 @@ export function useClinicianPatients() {
           lastActive: profile?.last_active ?? a.assigned_at,
           riskLevel: (a.risk_level as 'low' | 'medium' | 'high') ?? 'medium',
           notes: a.notes ?? undefined,
+          prescribedSleepHours: a.prescribed_sleep_hours ?? undefined,
           carePartnerName: patientCaregiverMap.get(a.patient_id) ?? undefined,
           avgSleepHours,
           avgSleepQuality,
@@ -230,6 +232,7 @@ export function useClinicianPatients() {
         const cpUpdates: Record<string, unknown> = {};
         if (updates.riskLevel !== undefined) cpUpdates.risk_level = updates.riskLevel;
         if (updates.notes !== undefined) cpUpdates.notes = updates.notes;
+        if (updates.prescribedSleepHours !== undefined) cpUpdates.prescribed_sleep_hours = updates.prescribedSleepHours;
 
         if (Object.keys(cpUpdates).length > 0) {
           const { error } = await supabase

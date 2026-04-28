@@ -79,6 +79,9 @@ export default function PatientDetail() {
   const [isRecModalOpen, setIsRecModalOpen] = useState(false);
   const [recText, setRecText] = useState('');
 
+  const [prescriptionInput, setPrescriptionInput] = useState('');
+  const [prescriptionSaving, setPrescriptionSaving] = useState(false);
+
   /* ── Sleep logs — fetched from Supabase ── */
   const [sleepLogs, setSleepLogs] = useState<SleepLogEntry[]>([]);
   useEffect(() => {
@@ -102,6 +105,13 @@ export default function PatientDetail() {
 
   const patient = patientId ? getPatientById(patientId) : null;
   const patientNotes = patientId ? getPatientNotes(patientId) : [];
+
+  // Seed prescription input when patient data is available
+  useEffect(() => {
+    if (patient?.prescribedSleepHours != null) {
+      setPrescriptionInput(String(patient.prescribedSleepHours));
+    }
+  }, [patient?.prescribedSleepHours]);
   const recommendations = patientNotes.filter((n) => n.type === 'recommendation');
   const regularNotes = patientNotes.filter((n) => n.type !== 'recommendation');
 
@@ -233,6 +243,24 @@ export default function PatientDetail() {
     general:    { bg: token.gray100, color: token.gray600 },
   };
 
+  const handleSavePrescription = async () => {
+    if (!patientId) return;
+    const val = parseFloat(prescriptionInput);
+    if (!Number.isFinite(val) || val <= 0 || val > 24) {
+      toast.error('Please enter a valid number of hours (e.g. 7.5)');
+      return;
+    }
+    setPrescriptionSaving(true);
+    try {
+      await updatePatient(patientId, { prescribedSleepHours: val });
+      toast.success(`Sleep prescription set to ${val} hrs for ${patient?.name}`);
+    } catch {
+      toast.error('Failed to save prescription');
+    } finally {
+      setPrescriptionSaving(false);
+    }
+  };
+
   const handleAddNote = async () => {
     if (!noteText.trim() || !patientId) { toast.error('Please enter a note'); return; }
     const saved = await addNote({ patientId, clinicianId: user?.id ?? '', note: noteText, type: noteType });
@@ -311,6 +339,48 @@ export default function PatientDetail() {
         </div>
       </div>
 
+      {/* ── Sleep Prescription ── */}
+      <div style={cardStyle}>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-8 h-8 rounded-[8px] flex items-center justify-center" style={{ backgroundColor: token.gray100 }}>
+            <Moon size={16} strokeWidth={1.5} color={token.gray600} />
+          </div>
+          <div>
+            <h2 className="text-[16px] font-[600]" style={{ color: token.text }}>Sleep Prescription</h2>
+            <p className="text-[12px]" style={{ color: token.gray400 }}>Target nightly sleep hours shown to the patient on their dashboard</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <input
+              type="number"
+              min={0.5}
+              max={12}
+              step={0.5}
+              placeholder="e.g. 7.5"
+              value={prescriptionInput}
+              onChange={(e) => setPrescriptionInput(e.target.value)}
+              className="w-28 rounded-lg border border-[#E9D5FF] px-3 py-2 text-[14px] font-[500] outline-none focus:border-[#6D28D9] transition-colors"
+              style={{ color: token.text }}
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[12px]" style={{ color: token.gray400 }}>hrs</span>
+          </div>
+          <button
+            onClick={handleSavePrescription}
+            disabled={prescriptionSaving}
+            className="px-4 py-2 rounded-lg text-[13px] font-[500] transition-colors disabled:opacity-60"
+            style={{ backgroundColor: token.purple700, color: token.white }}
+          >
+            {prescriptionSaving ? 'Saving…' : 'Save'}
+          </button>
+          {patient.prescribedSleepHours != null && (
+            <span className="text-[13px]" style={{ color: token.gray600 }}>
+              Current: <strong style={{ color: token.purple700 }}>{patient.prescribedSleepHours} hrs</strong>
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* ── Attention Alert ── */}
       {daysSinceLastActive > 3 && (
         <div style={{ ...cardStyle, backgroundColor: '#FFFBEB', border: '0.5px solid #FDE68A' }}>
@@ -381,10 +451,10 @@ export default function PatientDetail() {
                 <p className="text-[11px] font-[500] mb-1" style={{ color: token.gray400 }}>Avg Quality</p>
                 <div className="flex items-center gap-0.5 mb-1">
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <Star key={s} size={13} className={s <= Math.round(Number(qualityAvg)) ? 'text-gray-600 fill-gray-600' : 'text-gray-300'} />
+                    <Star key={s} size={13} className={s <= Math.round(Number(qualityAvg) / 2) ? 'text-gray-600 fill-gray-600' : 'text-gray-300'} />
                   ))}
                 </div>
-                <p className="text-[11px]" style={{ color: token.gray400 }}>{qualityAvg} / 5.0</p>
+                <p className="text-[11px]" style={{ color: token.gray400 }}>{qualityAvg} / 10</p>
               </div>
               <div className="p-3 rounded-[10px]" style={{ backgroundColor: token.gray50, border: `0.5px solid ${token.purple100}` }}>
                 <p className="text-[11px] font-[500] mb-1" style={{ color: token.gray400 }}>Consistency</p>
@@ -456,7 +526,7 @@ export default function PatientDetail() {
                     </span>
                     <div className="flex gap-0.5">
                       {[1, 2, 3, 4, 5].map((s) => (
-                        <Star key={s} size={10} className={s <= Math.round(week.avgQuality) ? 'text-gray-500 fill-gray-500' : 'text-gray-200'} />
+                        <Star key={s} size={10} className={s <= Math.round(week.avgQuality / 2) ? 'text-gray-500 fill-gray-500' : 'text-gray-200'} />
                       ))}
                     </div>
                   </div>

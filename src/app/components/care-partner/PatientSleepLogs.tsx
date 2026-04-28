@@ -151,23 +151,23 @@ export default function PatientSleepLogs() {
             </div>
             <div
               className={`flex items-center space-x-1 text-sm px-3 py-1 rounded-full ${
-                sleepStats.averageQuality >= 4
+                sleepStats.averageQuality >= 8
                   ? 'bg-teal-50 text-teal-600'
                   : 'bg-amber-50 text-amber-600'
               }`}
             >
-              {sleepStats.averageQuality >= 4 ? (
+              {sleepStats.averageQuality >= 8 ? (
                 <ArrowUp className="w-4 h-4" />
               ) : (
                 <ArrowDown className="w-4 h-4" />
               )}
-              <span>{sleepStats.averageQuality >= 4 ? 'Great' : 'Fair'}</span>
+              <span>{sleepStats.averageQuality >= 8 ? 'Great' : 'Fair'}</span>
             </div>
           </div>
           <p className="text-sm text-gray-600 mb-1">Avg Quality</p>
           <p className="text-3xl" style={{ color: '#1f1f3d' }}>
             {sleepStats.averageQuality > 0
-              ? `${Math.round(sleepStats.averageQuality * 20)}%`
+              ? `${Math.round(sleepStats.averageQuality * 10)}%`
               : 'No data'}
           </p>
         </div>
@@ -302,7 +302,7 @@ export default function PatientSleepLogs() {
                         </div>
                         <div className="flex items-center space-x-2">
                           <Star className="w-4 h-4" />
-                          <span>Quality: {log.sleepQuality}/5</span>
+                          <span>Quality: {log.sleepQuality}/10</span>
                         </div>
                       </div>
                       {log.notes && (

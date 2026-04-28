@@ -23,7 +23,7 @@ export default function SleepAnalytics() {
   const sampleLogs = useMemo(() => {
     const now = new Date();
     const hours = [6.4, 6.9, 7.1, 7.4, 7.0, 7.3, 7.6, 7.2, 7.5, 7.8, 7.1, 7.4, 7.7, 7.3];
-    const quality = [3, 3, 4, 4, 4, 5, 5, 4, 4, 5, 4, 4, 5, 4];
+    const quality = [6, 6, 7, 7, 8, 8, 9, 8, 8, 9, 7, 8, 9, 8];
 
     return hours.map((hrs, index) => {
       const date = new Date(now);
@@ -126,7 +126,7 @@ export default function SleepAnalytics() {
                 <Star
                   key={star}
                   className={`w-5 h-5 ${
-                    star <= Math.round(analytics.averageQuality)
+                    star <= Math.round(analytics.averageQuality / 2)
                     ? 'text-gray-600 fill-gray-600'
                       : 'text-gray-300'
                   }`}
@@ -134,7 +134,7 @@ export default function SleepAnalytics() {
               ))}
             </div>
             <p style={{ fontSize: '13px', color: '#6B7280' }}>
-              {analytics.averageQuality.toFixed(1)} / 5.0
+              {analytics.averageQuality.toFixed(1)} / 10
             </p>
           </div>
 
@@ -264,7 +264,7 @@ export default function SleepAnalytics() {
                           <Star
                             key={star}
                             className={`w-4 h-4 ${
-                              star <= week.avgQuality
+                              star <= Math.round(week.avgQuality / 2)
                               ? 'text-gray-600 fill-gray-600'
                                 : 'text-gray-300'
                             }`}

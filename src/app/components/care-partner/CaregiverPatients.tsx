@@ -123,14 +123,15 @@ export default function CaregiverPatients() {
 
   const renderStars = (quality?: number) => {
     if (quality == null) return <span className="text-[#9CA3AF] text-[12px]">—</span>;
+    const stars = Math.round(quality / 2);
     return (
       <div className="flex items-center gap-0.5">
         {[1, 2, 3, 4, 5].map((s) => (
           <Star
             key={s}
             size={12}
-            fill={s <= Math.round(quality) ? '#F59E0B' : 'none'}
-            color={s <= Math.round(quality) ? '#F59E0B' : '#D1D5DB'}
+            fill={s <= stars ? '#F59E0B' : 'none'}
+            color={s <= stars ? '#F59E0B' : '#D1D5DB'}
           />
         ))}
       </div>

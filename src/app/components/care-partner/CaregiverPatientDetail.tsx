@@ -69,15 +69,17 @@ const noteTypeConfig: Record<string, { bg: string; color: string; label: string 
 
 const NOTE_TYPES = ['general', 'encouragement', 'concern', 'check-in'] as const;
 
-const renderStars = (quality: number) =>
-  [1, 2, 3, 4, 5].map((s) => (
+const renderStars = (quality: number) => {
+  const stars = Math.round(quality / 2);
+  return [1, 2, 3, 4, 5].map((s) => (
     <Star
       key={s}
       size={14}
-      fill={s <= Math.round(quality) ? '#F59E0B' : 'none'}
-      color={s <= Math.round(quality) ? '#F59E0B' : '#D1D5DB'}
+      fill={s <= stars ? '#F59E0B' : 'none'}
+      color={s <= stars ? '#F59E0B' : '#D1D5DB'}
     />
   ));
+};
 
 export default function CaregiverPatientDetail({ patientId }: Props) {
   const navigate = useNavigate();
@@ -317,7 +319,7 @@ export default function CaregiverPatientDetail({ patientId }: Props) {
                 <p className="text-[12px] text-[#6B7280]">Avg Quality</p>
               </div>
               <div className="flex items-center gap-1 mt-1">{renderStars(analytics.averageQuality)}</div>
-              <p className="text-[12px] text-[#9CA3AF] mt-1">{analytics.averageQuality}/5</p>
+              <p className="text-[12px] text-[#9CA3AF] mt-1">{analytics.averageQuality}/10</p>
             </div>
             <div style={cardStyle} className="!p-4">
               <div className="flex items-center gap-2 mb-2">

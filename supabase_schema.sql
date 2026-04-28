@@ -99,17 +99,22 @@ CREATE POLICY IF NOT EXISTS "profiles: patient reads assigned care team"
 -- ── 2. clinician_patients ──────────────────────────────────
 -- Links a clinician to each patient they manage.
 CREATE TABLE IF NOT EXISTS public.clinician_patients (
-    id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    clinician_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    patient_id   UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-    status       TEXT NOT NULL DEFAULT 'active'
-                 CHECK (status IN ('active', 'completed', 'inactive')),
-    risk_level   TEXT NOT NULL DEFAULT 'medium'
-                 CHECK (risk_level IN ('low', 'medium', 'high')),
-    notes        TEXT,
-    assigned_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    clinician_id          UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    patient_id            UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    status                TEXT NOT NULL DEFAULT 'active'
+                          CHECK (status IN ('active', 'completed', 'inactive')),
+    risk_level            TEXT NOT NULL DEFAULT 'medium'
+                          CHECK (risk_level IN ('low', 'medium', 'high')),
+    notes                 TEXT,
+    prescribed_sleep_hours NUMERIC(4,1),
+    assigned_at           TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE (clinician_id, patient_id)
 );
+
+-- Migration: add column if table already exists
+ALTER TABLE public.clinician_patients
+    ADD COLUMN IF NOT EXISTS prescribed_sleep_hours NUMERIC(4,1);
 
 ALTER TABLE public.clinician_patients ENABLE ROW LEVEL SECURITY;
 
@@ -255,11 +260,17 @@ CREATE TABLE IF NOT EXISTS public.sleep_logs (
     date          TEXT NOT NULL,
     hours_slept   NUMERIC(4,2) NOT NULL DEFAULT 0,
     sleep_quality INTEGER NOT NULL DEFAULT 0
-                  CHECK (sleep_quality BETWEEN 0 AND 5),
+                  CHECK (sleep_quality BETWEEN 0 AND 10),
     notes         TEXT NOT NULL DEFAULT '',
     created_at    TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE (user_id, local_id)
 );
+
+-- Migration: widen quality constraint from 0-5 to 0-10 (form uses 1-10 scale)
+ALTER TABLE public.sleep_logs
+    DROP CONSTRAINT IF EXISTS sleep_logs_sleep_quality_check;
+ALTER TABLE public.sleep_logs
+    ADD CONSTRAINT sleep_logs_sleep_quality_check CHECK (sleep_quality BETWEEN 0 AND 10);
 
 ALTER TABLE public.sleep_logs ENABLE ROW LEVEL SECURITY;
 

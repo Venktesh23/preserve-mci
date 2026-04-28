@@ -30,6 +30,7 @@ import { useReminders } from '../hooks/useReminders';
 import { useAuth } from '../contexts/useAuth';
 import { useMessaging } from '../hooks/useMessaging';
 import SleepLogModal, { SleepLogData } from './SleepLogModal';
+import { supabase } from '../utils/supabaseClient';
 
 export default function PatientDashboard() {
   const navigate = useNavigate();
@@ -93,21 +94,35 @@ export default function PatientDashboard() {
     estimatedTime: currentModuleData.duration,
   };
 
-  // Real sleep statistics from localStorage
-  const prescribedSleepHours = 7.5; // This would come from clinician settings
-  
+  // Sleep prescription — set by the clinician, fetched from clinician_patients
+  const [prescribedSleepHours, setPrescribedSleepHours] = useState<number | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from('clinician_patients')
+      .select('prescribed_sleep_hours')
+      .eq('patient_id', user.id)
+      .eq('status', 'active')
+      .order('assigned_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.prescribed_sleep_hours != null) {
+          setPrescribedSleepHours(Number(data.prescribed_sleep_hours));
+        }
+      });
+  }, [user]);
+
   const sleepStatsData = [
-    { 
-      label: 'Avg Sleep', 
-      value: sleepStats.averageHours > 0 ? `${sleepStats.averageHours} hrs` : 'No data', 
+    {
+      label: 'Avg Sleep',
+      value: sleepStats.averageHours > 0 ? `${sleepStats.averageHours} hrs` : 'No data',
       icon: Moon,
       trend: sleepStats.averageHours >= 7 ? '+0.5' : 'Track more',
-      subLabel: 'Prescribed Sleep',
-      subValue: `${prescribedSleepHours} hrs`
     },
     { 
       label: 'Sleep Quality', 
-      value: sleepStats.averageQuality > 0 ? `${Math.round(sleepStats.averageQuality * 20)}%` : 'No data', 
+      value: sleepStats.averageQuality > 0 ? `${Math.round(sleepStats.averageQuality * 10)}%` : 'No data',
       icon: Star,
       trend: sleepStats.totalLogs > 3 ? '+5%' : 'Keep logging' 
     },
@@ -598,8 +613,10 @@ export default function PatientDashboard() {
                       </div>
                       <div style={{ width: '0.5px', backgroundColor: '#E9D5FF' }}></div>
                       <div className="flex-1 text-center">
-                        <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Prescribed</p>
-                        <p style={{ fontSize: '22px', fontWeight: 600, color: '#7200CA' }}>7.5 hrs</p>
+                        <p style={{ fontSize: '12px', color: '#9CA3AF' }}>Sleep Prescription</p>
+                        <p style={{ fontSize: '22px', fontWeight: 600, color: '#7200CA' }}>
+                          {prescribedSleepHours != null ? `${prescribedSleepHours} hrs` : '—'}
+                        </p>
                       </div>
                     </div>
                   ) : (

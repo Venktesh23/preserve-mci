@@ -66,10 +66,10 @@ export default function PatientOverview() {
     },
     {
       label: 'Sleep Quality',
-      value: sleepStats.averageQuality > 0 ? `${Math.round(sleepStats.averageQuality * 20)}%` : 'No data',
+      value: sleepStats.averageQuality > 0 ? `${Math.round(sleepStats.averageQuality * 10)}%` : 'No data',
       icon: TrendingUp,
       color: 'teal',
-      subtext: sleepStats.averageQuality >= 4 ? 'Excellent' : 'Room to improve',
+      subtext: sleepStats.averageQuality >= 8 ? 'Excellent' : 'Room to improve',
     },
   ];
 

@@ -170,17 +170,17 @@ export default function CarePartnerSleepAnalytics() {
       }
     }
 
-    if (quality >= 4) {
+    if (quality >= 8) {
       result.push({
         type: 'positive',
         title: 'Sleep quality is strong',
-        message: `${firstName} is rating sleep quality at ${(quality * 20).toFixed(0)}% — well above average. The program techniques appear to be helping.`,
+        message: `${firstName} is rating sleep quality at ${(quality * 10).toFixed(0)}% — well above average. The program techniques appear to be helping.`,
       });
-    } else if (quality > 0 && quality < 3) {
+    } else if (quality > 0 && quality < 5) {
       result.push({
         type: 'warning',
         title: 'Sleep quality needs attention',
-        message: `${firstName}'s sleep quality average is ${(quality * 20).toFixed(0)}%. Relaxation exercises from the program (like Progressive Muscle Relaxation) may help — encourage them to try.`,
+        message: `${firstName}'s sleep quality average is ${(quality * 10).toFixed(0)}%. Relaxation exercises from the program (like Progressive Muscle Relaxation) may help — encourage them to try.`,
         action: 'Send a tip',
         actionUrl: '/caregiver/messages',
       });
@@ -282,11 +282,11 @@ export default function CarePartnerSleepAnalytics() {
           <p className="text-sm text-gray-600 mb-1">Avg Quality</p>
           <p className="text-3xl" style={{ color: '#1f1f3d' }}>
             {sleepStats.averageQuality > 0
-              ? `${Math.round(sleepStats.averageQuality * 20)}%`
+              ? `${Math.round(sleepStats.averageQuality * 10)}%`
               : '—'}
           </p>
           <p className="text-sm text-gray-500 mt-1">
-            {sleepStats.averageQuality >= 4 ? 'Excellent' : sleepStats.averageQuality >= 3 ? 'Good' : 'Needs work'}
+            {sleepStats.averageQuality >= 8 ? 'Excellent' : sleepStats.averageQuality >= 6 ? 'Good' : 'Needs work'}
           </p>
         </div>
 
@@ -411,8 +411,8 @@ export default function CarePartnerSleepAnalytics() {
                       {[1, 2, 3, 4, 5].map((s) => (
                         <Star
                           key={s}
-                          className={`w-3.5 h-3.5 ${s <= Math.round(week.avgQuality) ? 'text-amber-400' : 'text-gray-200'}`}
-                          fill={s <= Math.round(week.avgQuality) ? 'currentColor' : 'none'}
+                          className={`w-3.5 h-3.5 ${s <= Math.round(week.avgQuality / 2) ? 'text-amber-400' : 'text-gray-200'}`}
+                          fill={s <= Math.round(week.avgQuality / 2) ? 'currentColor' : 'none'}
                         />
                       ))}
                     </div>
